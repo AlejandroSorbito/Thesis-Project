@@ -74,22 +74,7 @@
                     </button>
 
                     <!-- ROLE-AWARE SAFE BACK BUTTON -->
-                    <button class="nav-back-pill" 
-                            type="button" 
-                            id="navBackBtn" 
-                            aria-label="Go Back"
-                            onclick="(function(){
-                                const params = new URLSearchParams(window.location.search);
-                                const origin = params.get('origin') || sessionStorage.getItem('kandili_user_role') || '';
-                                
-                                if (origin.toLowerCase().includes('admin')) {
-                                    window.location.href = '../admin/admindashboard.html';
-                                } else if (origin.toLowerCase().includes('principal')) {
-                                    window.location.href = '../principal/principaldashboard.html';
-                                } else {
-                                    window.location.href = '../teacher/teacherdashboard.html';
-                                }
-                            })()">
+                    <button class="nav-back-pill" type="button" id="navBackBtn" aria-label="Go Back">
                         <i class="fas fa-arrow-left"></i>
                         <span>Back</span>
                     </button>
@@ -324,5 +309,49 @@
     <script src="../../static/js/logout.js"></script>
     <script src="../../js/sidebarToggle.js"></script>
     <script src="../../js/settingsLogic.js"></script>
+    <script>
+        (function() {
+            const backBtn = document.getElementById('navBackBtn') || document.getElementById('btnBackDashboard');
+            if (backBtn) {
+                backBtn.removeAttribute('onclick');
+                backBtn.addEventListener('click', async (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    let role = sessionStorage.getItem('kandili_user_role') || new URLSearchParams(window.location.search).get('origin');
+                    if (!role && window.supabaseClient) {
+                        try {
+                            const { data: { session } } = await window.supabaseClient.auth.getSession();
+                            if (session?.user?.id) {
+                                const { data: profile } = await window.supabaseClient
+                                    .from('profiles')
+                                    .select('role')
+                                    .eq('id', session.user.id)
+                                    .single();
+                                if (profile?.role) {
+                                    role = profile.role;
+                                    sessionStorage.setItem('kandili_user_role', role);
+                                }
+                            }
+                        } catch (err) {
+                            console.warn('Role check error:', err);
+                        }
+                    }
+                    const normalized = (role || '').trim().toLowerCase();
+                    if (normalized === 'teacher') {
+                        window.location.href = '../teacher/teacherdashboard.html';
+                    } else if (normalized === 'principal') {
+                        window.location.href = '../principal/principaldashboard.html';
+                    } else if (normalized === 'admin') {
+                        window.location.href = '../admin/admindashboard.html';
+                    } else {
+                        const isPrincipal = window.location.pathname.includes('/principal/');
+                        window.location.href = isPrincipal 
+                            ? '../principal/principaldashboard.html' 
+                            : '../teacher/teacherdashboard.html';
+                    }
+                });
+            }
+        })();
+    </script>
 </body>
 </html>

@@ -29,7 +29,7 @@
                 <span class="brand-text">Kandili Workspace</span>
             </div>
             <nav class="app-sidebar-nav" id="dynamicSidebarNav">
-                <a href="../teacher/teacherdashboard.html" class="app-sidebar-link" id="navDashboardLink">
+                <a href="../teacher/teacherdashboard.html" class="app-sidebar-link" id="sidebarDashboardLink">
                     <i class="fas fa-chart-line"></i>
                     <span>Dashboard</span>
                 </a>
@@ -226,5 +226,49 @@
     <script src="../../static/js/logout.js"></script>
     <script src="../../js/sidebarToggle.js"></script>
     <script src="../../static/js/messageLogic.js"></script>
+    <script>
+        (function() {
+            const backBtn = document.getElementById('navBackBtn') || document.getElementById('btnBackDashboard');
+            if (backBtn) {
+                backBtn.removeAttribute('onclick');
+                backBtn.addEventListener('click', async (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    let role = sessionStorage.getItem('kandili_user_role') || new URLSearchParams(window.location.search).get('origin');
+                    if (!role && window.supabaseClient) {
+                        try {
+                            const { data: { session } } = await window.supabaseClient.auth.getSession();
+                            if (session?.user?.id) {
+                                const { data: profile } = await window.supabaseClient
+                                    .from('profiles')
+                                    .select('role')
+                                    .eq('id', session.user.id)
+                                    .single();
+                                if (profile?.role) {
+                                    role = profile.role;
+                                    sessionStorage.setItem('kandili_user_role', role);
+                                }
+                            }
+                        } catch (err) {
+                            console.warn('Role check error:', err);
+                        }
+                    }
+                    const normalized = (role || '').trim().toLowerCase();
+                    if (normalized === 'teacher') {
+                        window.location.href = '../teacher/teacherdashboard.html';
+                    } else if (normalized === 'principal') {
+                        window.location.href = '../principal/principaldashboard.html';
+                    } else if (normalized === 'admin') {
+                        window.location.href = '../admin/admindashboard.html';
+                    } else {
+                        const isPrincipal = window.location.pathname.includes('/principal/');
+                        window.location.href = isPrincipal 
+                            ? '../principal/principaldashboard.html' 
+                            : '../teacher/teacherdashboard.html';
+                    }
+                });
+            }
+        })();
+    </script>
 </body>
 </html>

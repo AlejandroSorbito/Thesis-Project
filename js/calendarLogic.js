@@ -449,8 +449,12 @@ function initLogoutHandler() {
 
 function handleRoleAwareBack(e) {
     if (e) e.preventDefault();
-    const role = getDashboardRole();
-    window.location.href = role === 'teacher'
-        ? '../teacher/teacherdashboard.html'
-        : '../principal/principaldashboard.html';
+    const role = (sessionStorage.getItem('kandili_user_role') || getDashboardRole() || '').toLowerCase();
+    if (role === 'admin') {
+        window.location.href = '../admin/admindashboard.html';
+    } else if (role === 'principal') {
+        window.location.href = '../principal/principaldashboard.html';
+    } else {
+        window.location.href = '../teacher/teacherdashboard.html';
+    }
 }

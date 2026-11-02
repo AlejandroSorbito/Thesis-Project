@@ -42,13 +42,17 @@ async function checkAuthAndRole(requiredRole) {
         return;
     }
 
-    const userRole = profile.role;
+    const rawRole = profile.role || '';
+    const userRole = rawRole.trim().toLowerCase();
+    if (userRole) {
+        sessionStorage.setItem('kandili_user_role', userRole);
+    }
 
     // 3. Role enforcement check
-    const allowedRoles = requiredRole ? requiredRole.split(',').map(r => r.trim()) : [];
-const isAuthorized = requiredRole === 'any' || allowedRoles.includes(userRole);
+    const allowedRoles = requiredRole ? requiredRole.split(',').map(r => r.trim().toLowerCase()).filter(Boolean) : [];
+    const isAuthorized = requiredRole === 'any' || allowedRoles.includes(userRole);
 
-if (requiredRole && !isAuthorized) {
+    if (requiredRole && !isAuthorized) {
         console.warn(`Unauthorized Access. User is a ${userRole}, required ${requiredRole}.`);
         if (userRole === 'teacher') {
             window.location.href = getKandiliPath('teacher', 'teacherdashboard.html');

@@ -70,7 +70,71 @@ function setupNavigationEvents() {
 
 async function loadPrincipalDashboardData() {
     try {
-        // MODIFIED: burnout_assessments now uses (*) to fetch all columns
+        if (!window.supabaseClient) {
+            console.error("Supabase client not loaded.");
+            return;
+        }
+
+        // 1. Fetch Principal's Session & Profile
+        const { data: { session }, error: sessionError } = await window.supabaseClient.auth.getSession();
+        if (sessionError || !session || !session.user) {
+            console.warn("No active session found.");
+            return;
+        }
+
+        const { data: principalProfile, error: profileError } = await window.supabaseClient
+            .from('profiles')
+            .select('school, assigned_institution')
+            .eq('id', session.user.id)
+            .single();
+
+        if (profileError) {
+            console.error("Error loading principal profile:", profileError.message);
+        }
+
+        const principalSchool = principalProfile?.school || principalProfile?.assigned_institution;
+
+        // 2. Handle Missing School Guard
+        if (!principalSchool) {
+            console.warn("No school assigned to your profile.");
+            const errorMessage = "No school assigned to your profile. Please contact Admin.";
+
+            renderDynamicBannerStats(0, 0);
+            updatePrincipalSummaryCards({
+                totalTeachers: 0,
+                totalTeachingHrs: "0.0",
+                totalAncillaryHrs: "0.0",
+                underloadedCount: 0,
+                optimalCount: 0,
+                highCount: 0,
+                maximizedCount: 0,
+                overloadedCount: 0
+            });
+            renderBurnoutSummaryCards([]);
+
+            const tableBody = document.querySelector('#facultyTableBody');
+            if (tableBody) {
+                tableBody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 2rem; color: #dc2626; font-weight: 500;">${errorMessage}</td></tr>`;
+            }
+
+            const directoryGrid = document.querySelector('.directory-grid');
+            if (directoryGrid) {
+                directoryGrid.innerHTML = `<div class="info-box" style="grid-column: 1 / -1; text-align: center; padding: 2rem; color: #dc2626; font-weight: 500;">${errorMessage}</div>`;
+            }
+
+            const hotlistPanel = document.querySelector('.hotlist-panel');
+            if (hotlistPanel) {
+                hotlistPanel.innerHTML = `<div style="text-align:center; padding: 1.5rem; color: #dc2626; font-weight: 500;">${errorMessage}</div>`;
+            }
+
+            const distCanvas = document.getElementById('distributionChart');
+            if (distCanvas && distCanvas.parentElement) {
+                distCanvas.parentElement.innerHTML = `<div style="display:flex; align-items:center; justify-content:center; height:100%; min-height:220px; color:#dc2626; font-size:0.9rem; font-weight:500;">${errorMessage}</div>`;
+            }
+            return;
+        }
+
+        // 3. Filter Teachers by Role and Principal's School
         const { data: teachers, error } = await window.supabaseClient
             .from('profiles')
             .select(`
@@ -80,11 +144,13 @@ async function loadPrincipalDashboardData() {
                 department,
                 role,
                 teacher_code,
+                school,
                 teaching_loads ( minutes_per_week ),
                 ancillary_duties ( * ),
                 burnout_assessments ( * )
             `)
-            .eq('role', 'teacher');
+            .eq('role', 'teacher')
+            .eq('school', principalSchool);
 
         if (error) {
             console.error("Error fetching principal dashboard data:", error.message);
@@ -463,15 +529,8 @@ async function renderPrincipalCharts(teachers, metrics) {
     if (distCanvas) {
         if (distributionChartInstance) distributionChartInstance.destroy();
 
-        let allAssessments = [];
-        try {
-            const { data, error } = await window.supabaseClient
-                .from('burnout_assessments')
-                .select('risk_index');
-            if (!error && data) allAssessments = data;
-        } catch (e) {
-            console.error("Error fetching burnout assessments for chart:", e);
-        }
+        // Scoped strictly to the school's teachers' assessments
+        const allAssessments = (teachers || []).flatMap(t => t.burnout_assessments || []);
 
         if (!allAssessments || allAssessments.length === 0) {
             distCanvas.parentElement.innerHTML = `<div style="display:flex; align-items:center; justify-content:center; height:100%; min-height:220px; color:#94a3b8; font-size:0.9rem; font-weight:500;">No data available yet.</div>`;

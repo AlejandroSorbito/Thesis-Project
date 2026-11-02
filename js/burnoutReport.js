@@ -145,6 +145,16 @@ function renderSubscale(key, data, max) {
     if (desc) {
         desc.textContent = data.desc;
     }
+
+    // Back to Directory Handler
+    document.getElementById('btnBackDirectory')?.addEventListener('click', () => {
+        window.location.href = 'burnout_reports_directory.html';
+    });
+
+    // Refresh Handler
+    document.getElementById('refreshBtn')?.addEventListener('click', () => {
+        window.location.reload();
+    });
 }
 
 // PDF Direct Download Handler

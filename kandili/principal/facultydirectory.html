@@ -93,7 +93,7 @@
                     </button>
 
                     <!-- ROLE-AWARE SAFE BACK BUTTON -->
-                    <button class="nav-back-pill" id="btnBackDashboard" type="button" aria-label="Back to Dashboard" onclick="window.location.href='../principal/principaldashboard.html'">
+                    <button class="nav-back-pill" id="navBackBtn" type="button" aria-label="Go Back">
                         <i class="fas fa-arrow-left"></i>
                         <span>Back</span>
                     </button>
@@ -239,5 +239,46 @@
     <script src="../../static/js/logout.js"></script>
     <script src="../../js/sidebarToggle.js"></script>
     <script src="../../static/js/facultydirectory.js"></script>
+    <script>
+        (function() {
+            const backBtn = document.getElementById('navBackBtn') || document.getElementById('btnBackDashboard');
+            if (backBtn) {
+                backBtn.removeAttribute('onclick');
+                backBtn.addEventListener('click', async (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    let role = sessionStorage.getItem('kandili_user_role') || new URLSearchParams(window.location.search).get('origin');
+                    if (!role && window.supabaseClient) {
+                        try {
+                            const { data: { session } } = await window.supabaseClient.auth.getSession();
+                            if (session?.user?.id) {
+                                const { data: profile } = await window.supabaseClient
+                                    .from('profiles')
+                                    .select('role')
+                                    .eq('id', session.user.id)
+                                    .single();
+                                if (profile?.role) {
+                                    role = profile.role;
+                                    sessionStorage.setItem('kandili_user_role', role);
+                                }
+                            }
+                        } catch (err) {
+                            console.warn('Role check error:', err);
+                        }
+                    }
+                    const normalized = (role || '').trim().toLowerCase();
+                    if (normalized === 'teacher') {
+                        window.location.href = '../teacher/teacherdashboard.html';
+                    } else if (normalized === 'principal') {
+                        window.location.href = '../principal/principaldashboard.html';
+                    } else if (normalized === 'admin') {
+                        window.location.href = '../admin/admindashboard.html';
+                    } else {
+                        window.location.href = '../principal/principaldashboard.html';
+                    }
+                });
+            }
+        })();
+    </script>
 </body>
 </html>

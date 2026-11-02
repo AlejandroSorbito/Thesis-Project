@@ -3,6 +3,7 @@
 let currentMessageTab = 'inbox';
 
 document.addEventListener('DOMContentLoaded', async () => {
+    updateSidebarDashboardLink();
     await populateRecipientDropdown();
     await loadMessages(currentMessageTab);
     await updateUnreadCount();
@@ -13,6 +14,25 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('closeModalIconBtn')?.addEventListener('click', () => window.closeMessageModal());
     document.getElementById('closeModalBtn')?.addEventListener('click', () => window.closeMessageModal());
 });
+
+function updateSidebarDashboardLink() {
+    const dashboardLink = document.getElementById('sidebarDashboardLink') || document.getElementById('navDashboardLink');
+    if (!dashboardLink) return;
+
+    let role = (sessionStorage.getItem('kandili_user_role') || '').trim().toLowerCase();
+    if (!role) {
+        const urlParams = new URLSearchParams(window.location.search);
+        role = (urlParams.get('origin') || '').trim().toLowerCase();
+    }
+
+    if (role === 'principal') {
+        dashboardLink.href = '../principal/principaldashboard.html';
+    } else if (role === 'admin') {
+        dashboardLink.href = '../admin/admindashboard.html';
+    } else if (role === 'teacher') {
+        dashboardLink.href = '../teacher/teacherdashboard.html';
+    }
+}
 
 // Unread Badge Count Update
 async function updateUnreadCount() {

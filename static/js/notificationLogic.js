@@ -1,8 +1,28 @@
 // static/notificationLogic.js
 
 document.addEventListener('DOMContentLoaded', async () => {
+    updateSidebarDashboardLink();
     await loadNotifications();
 });
+
+function updateSidebarDashboardLink() {
+    const dashboardLink = document.getElementById('sidebarDashboardLink') || document.getElementById('navDashboardLink');
+    if (!dashboardLink) return;
+
+    let role = (sessionStorage.getItem('kandili_user_role') || '').trim().toLowerCase();
+    if (!role) {
+        const urlParams = new URLSearchParams(window.location.search);
+        role = (urlParams.get('origin') || '').trim().toLowerCase();
+    }
+
+    if (role === 'principal') {
+        dashboardLink.href = '../principal/principaldashboard.html';
+    } else if (role === 'admin') {
+        dashboardLink.href = '../admin/admindashboard.html';
+    } else if (role === 'teacher') {
+        dashboardLink.href = '../teacher/teacherdashboard.html';
+    }
+}
 
 async function loadNotifications() {
     try {

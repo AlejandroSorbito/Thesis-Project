@@ -20,9 +20,32 @@ document.addEventListener('DOMContentLoaded', async () => {
                 .single();
 
             if (profile) {
-                const welcomeHeading = document.querySelector('.welcome-header h1');
+                // Role-based visibility for Admin/Principal switch button
+                const adminBtn = document.getElementById('adminSwitchBtn');
+                if (adminBtn) {
+                    const userRole = (profile.role || '').trim().toLowerCase();
+                    if (userRole === 'principal' || userRole === 'admin') {
+                        adminBtn.style.display = 'inline-flex';
+                        if (userRole === 'admin') {
+                            adminBtn.href = '../admin/admindashboard.html';
+                            adminBtn.title = 'Return to Admin Console';
+                            const label = adminBtn.querySelector('span');
+                            if (label) label.textContent = 'Admin Console';
+                        } else {
+                            adminBtn.href = '../principal/principaldashboard.html';
+                            adminBtn.title = 'Return to Principal View';
+                            const label = adminBtn.querySelector('span');
+                            if (label) label.textContent = 'Return to Principal View';
+                        }
+                    } else {
+                        adminBtn.style.display = 'none';
+                    }
+                }
+
+                const welcomeHeading = document.getElementById('dashboardWelcomeHeading') || document.querySelector('.welcome-header h1');
                 if (welcomeHeading) {
-                    welcomeHeading.innerText = `👋 Welcome back, ${profile.first_name || ''} ${profile.last_name || 'Teacher'}`;
+                    const fullName = `${profile.first_name || ''} ${profile.last_name || ''}`.trim();
+                    welcomeHeading.textContent = fullName ? `👋 Welcome back, ${fullName}` : '👋 Welcome back';
                 }
                 const adviserEl = document.getElementById('dashAdviserVal');
                 if (adviserEl) {
@@ -36,6 +59,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                     const advisory = profile.advisory_class ? `Class Adviser (${profile.advisory_class})` : 'No Advisory';
                     const school = profile.school || 'No School Assigned';
                     subtitleEl.textContent = `${role} • ${advisory} • ${school}`;
+                }
+
+                const reminderTeacherName = document.getElementById('assessmentModalTeacherName');
+                if (reminderTeacherName) {
+                    reminderTeacherName.textContent = profile.first_name ? `Teacher ${profile.first_name}` : 'Teacher';
                 }
             }
 
@@ -796,10 +824,10 @@ async function initTeacherDashboard() {
             .single();
 
         if (profile) {
-            const welcomeText = document.querySelector('.welcome-header h1');
+            const welcomeText = document.getElementById('dashboardWelcomeHeading') || document.querySelector('.welcome-header h1');
             if (welcomeText) {
-                const fullName = `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'Teacher';
-                welcomeText.innerHTML = `👋 Welcome back, ${fullName}`;
+                const fullName = `${profile.first_name || ''} ${profile.last_name || ''}`.trim();
+                welcomeText.textContent = fullName ? `👋 Welcome back, ${fullName}` : '👋 Welcome back';
             }
         }
 

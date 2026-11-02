@@ -73,17 +73,10 @@ function initRoleRouting() {
             e.preventDefault();
 
             let targetDashboard = '../teacher/teacherdashboard.html';
-            if (origin === 'admin') targetDashboard = '../admin/admindashboard.html';
-            else if (origin === 'principal') targetDashboard = '../principal/principaldashboard.html';
-
-            const referrer = document.referrer || '';
-            const isInternal = (referrer.includes('/html/') || referrer.includes('dashboard')) && !referrer.includes('login.html');
-
-            if (isInternal) {
-                window.location.href = referrer;
-            } else {
-                window.location.href = targetDashboard;
-            }
+            const currentRole = (sessionStorage.getItem('kandili_user_role') || origin || '').toLowerCase();
+            if (currentRole === 'admin') targetDashboard = '../admin/admindashboard.html';
+            else if (currentRole === 'principal') targetDashboard = '../principal/principaldashboard.html';
+            window.location.href = targetDashboard;
         });
     }
 }

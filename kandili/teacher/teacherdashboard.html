@@ -81,7 +81,7 @@
                 </a>
                 <a href="#official-workload-section" class="app-sidebar-link">
                     <i class="fas fa-file-signature"></i>
-                    <span>eSF7 Workload</span>
+                    <span>Workload</span>
                 </a>
                 <a href="#student-grades-section" class="app-sidebar-link">
                     <i class="fas fa-graduation-cap"></i>
@@ -163,7 +163,7 @@
             <main class="dashboard">
                 <!-- WELCOME HEADER -->
                 <div class="welcome-header">
-                    <h1>👋 Welcome back, Sarah J. Cruz</h1>
+                    <h1 id="dashboardWelcomeHeading">👋 Welcome back</h1>
                     <p id="dashboard-user-subtitle">Loading details...</p>
                 </div>
 
@@ -402,11 +402,11 @@
                     </div>
                 </section>
 
-                <!-- ESF7 WORKLOAD -->
+                <!-- OFFICIAL WORKLOAD -->
                 <section class="content-card" id="official-workload-section">
                     <div class="card-title">
-                        <i class="fas fa-file-signature"></i> Official Workload (From eSF7)
-                        <span class="card-title-meta">Total: 27 hrs/week</span>
+                        <i class="fas fa-file-signature"></i> Official Workload (From Class Program)
+                        <span class="card-title-meta"></span>
                     </div>
                     <div class="data-table-wrapper">
                         <table class="data-table">
@@ -423,20 +423,9 @@
                             </thead>
                             <tbody>
                                 <tr>
-                                    <td>Mathematics</td><td>Grade 2 - A</td><td>MON</td><td>08-12</td><td>Teaching</td><td>4 hrs</td>
-                                    <td><span class="status-badge status-confirmed"><i class="fas fa-check"></i> Confirmed</span></td>
-                                </tr>
-                                <tr>
-                                    <td>Science</td><td>Grade 2 - A</td><td>TUE</td><td>08-12</td><td>Teaching</td><td>4 hrs</td>
-                                    <td><span class="status-badge status-confirmed"><i class="fas fa-check"></i> Confirmed</span></td>
-                                </tr>
-                                <tr>
-                                    <td>English</td><td>Grade 2 - A</td><td>THU</td><td>08-12</td><td>Teaching</td><td>4 hrs</td>
-                                    <td><span class="status-badge status-confirmed"><i class="fas fa-check"></i> Confirmed</span></td>
-                                </tr>
-                                <tr>
-                                    <td>SDRRM Coordinator</td><td>Whole School</td><td>-</td><td>-</td><td>Ancillary</td><td class="text-danger font-bold">5 hrs</td>
-                                    <td><span class="status-badge status-pending"><i class="fas fa-clock"></i> Pending</span></td>
+                                    <td colspan="7" style="text-align: center; padding: 1.5rem; color: #64748b;">
+                                        No workload records found. Choose a class program spreadsheet (.xlsx) above and click <strong>Upload Program</strong> to populate your schedule.
+                                    </td>
                                 </tr>
                             </tbody>
                         </table>
@@ -468,15 +457,20 @@
                                 <tr>
                                     <th>LRN</th>
                                     <th>Learner Full Name</th>
-                                    <th>Mother Tongue (MTB-MLE)</th>
-                                    <th>Mathematics 2</th>
-                                    <th>English &amp; Literacy 2</th>
+                                    <th>Filipino</th>
+                                    <th>English</th>
+                                    <th>Mathematics</th>
+                                    <th>Science</th>
+                                    <th>Araling Panlipunan (AP)</th>
+                                    <th>MAPEH</th>
+                                    <th>GMRC / Values Education</th>
+                                    <th>EPP (Edukasyong Pantahanan at Pangkabuhayan)</th>
                                     <th>General Average</th>
                                     <th>DepEd Status</th>
                                 </tr>
                             </thead>
                             <tbody id="studentGradesTableBody">
-                                <tr><td colspan="7" style="text-align:center; color:#64748b; padding:2rem;">No student grades recorded yet.</td></tr>
+                                <tr><td colspan="12" style="text-align:center; color:#64748b; padding:2rem;">No student grades recorded yet.</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -543,7 +537,7 @@
 
             <div class="modal-body padding-top-sm">
                 <p style="font-size: 0.88rem; color: #475569; line-height: 1.5; margin: 0.75rem 0 1.25rem 0;">
-                    Hello, <strong>Teacher Sarah</strong>! Your <strong>Trimester 1 MBI-ES &amp; Workload Assessment</strong> is currently pending. Completing this ensures your contact hours, ancillary duties, and fatigue indicators are properly recorded in the school system.
+                    Hello, <strong id="assessmentModalTeacherName">Teacher</strong>! Your <strong>Trimester 1 MBI-ES &amp; Workload Assessment</strong> is currently pending. Completing this ensures your contact hours, ancillary duties, and fatigue indicators are properly recorded in the school system.
                 </p>
 
                 <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 0.75rem 1rem; margin-bottom: 1.25rem; font-size: 0.78rem; color: #64748b;">
@@ -883,26 +877,6 @@
                 leaveModal?.classList.remove('active');
             });
         });
-
-        // 4. ROLE-SWITCH RETENTION FOR PRINCIPAL TESTING
-        (function initAdminSwitchButton() {
-            const adminBtn = document.getElementById('adminSwitchBtn');
-            if (!adminBtn) return;
-
-            const urlParams = new URLSearchParams(window.location.search);
-            const viewAs = urlParams.get('viewAs');
-
-            if (viewAs === 'principal' || sessionStorage.getItem('kandili_viewing_as_teacher') === 'true') {
-                sessionStorage.setItem('kandili_viewing_as_teacher', 'true');
-                adminBtn.style.display = 'inline-flex';
-                return;
-            }
-
-            const role = (localStorage.getItem('user_role') || sessionStorage.getItem('user_role') || '').toLowerCase();
-            if (role === 'principal') {
-                adminBtn.style.display = 'inline-flex';
-            }
-        })();
     </script>
 </body>
 </html>
