@@ -471,6 +471,13 @@ async function applyExtractedProgramToDashboard(data) {
 
     renderWorkloadFromClassProgram(data);
 
+    // Compute and render Workload Strain Index (WSI)
+    const wsiResult = calculateWSI(data);
+    updateWSIUI(wsiResult);
+    if (wsiResult) {
+        updateWorkloadComparisonChart(wsiResult.weeklyWSI);
+    }
+
     const totEl = document.getElementById('dashTotalDemographics');
     const boysEl = document.getElementById('dashBoysCount');
     const girlsEl = document.getElementById('dashGirlsCount');
@@ -634,6 +641,304 @@ function renderWorkloadFromClassProgram(data) {
     }
 }
 
+
+/**
+ * 1. Helper Function: Parse Time String to Minutes
+ * Input examples: "7:00 - 7:20", "11:00 - 1:00", "2:00 - 3:00 PM"
+ */
+function parseTimeToMinutes(timeStr) {
+    if (!timeStr || typeof timeStr !== 'string') return null;
+    const parts = timeStr.split('-');
+    if (parts.length < 2) return null;
+
+    function parseSingleTime(str) {
+        let s = str.trim().toUpperCase();
+        const isPM = s.includes('PM');
+        const isAM = s.includes('AM');
+        s = s.replace(/(AM|PM)/g, '').trim();
+        const colonParts = s.split(':');
+        if (colonParts.length === 0 || !colonParts[0]) return null;
+        let h = parseInt(colonParts[0], 10);
+        let m = colonParts.length > 1 ? parseInt(colonParts[1], 10) : 0;
+        if (isNaN(h)) return null;
+        if (isNaN(m)) m = 0;
+
+        if (isPM && h < 12) h += 12;
+        else if (isAM && h === 12) h = 0;
+        else if (!isPM && !isAM) {
+            // DepEd typical elementary timetable: 1:00-6:00 are PM
+            if (h >= 1 && h <= 6) h += 12;
+        }
+        return h * 60 + m;
+    }
+
+    const startMins = parseSingleTime(parts[0]);
+    let endMins = parseSingleTime(parts[1]);
+    if (startMins === null || endMins === null) return null;
+
+    // Handle cross-noon wrap (e.g., 11:00 - 1:00)
+    if (endMins < startMins && endMins + 720 > startMins) {
+        endMins += 720;
+    }
+
+    const durationMins = Math.max(0, endMins - startMins);
+    return { startMins, endMins, durationMins };
+}
+
+/**
+ * 2. Calculation Engine: Compute Workload Strain Index (WSI)
+ */
+function calculateWSI(data) {
+    if (!data || !data.scheduleMatrix || !Array.isArray(data.scheduleMatrix) || data.scheduleMatrix.length === 0) {
+        return null;
+    }
+
+    let minStart = Infinity;
+    let maxEnd = -Infinity;
+    let teachingMins = 0;
+    let breakMins = 0;
+    let afterHoursMins = 0;
+
+    const breakKeywords = ['break', 'recess', 'lunch'];
+
+    data.scheduleMatrix.forEach(row => {
+        const timeObj = parseTimeToMinutes(row.time);
+        if (!timeObj) return;
+
+        const { startMins, endMins, durationMins } = timeObj;
+        if (startMins < minStart) minStart = startMins;
+        if (endMins > maxEnd) maxEnd = endMins;
+
+        const rowText = `${row.mon || ''} ${row.tue || ''} ${row.wed || ''} ${row.thu || ''} ${row.fri || ''} ${row.time || ''}`.toLowerCase();
+        const isBreak = breakKeywords.some(keyword => rowText.includes(keyword));
+        const isAfterHours = startMins >= (16 * 60); // 16:00 (4:00 PM)
+
+        if (isBreak) {
+            breakMins += durationMins;
+        } else if (isAfterHours) {
+            afterHoursMins += durationMins;
+        } else {
+            teachingMins += durationMins;
+        }
+    });
+
+    if (minStart === Infinity || maxEnd === -Infinity) return null;
+
+    const schoolStart = minStart;
+    const schoolEnd = maxEnd;
+    const baseHours = Math.max(0, (schoolEnd - schoolStart) / 60);
+
+    // Multipliers based on DepEd research
+    const baseScore = baseHours * 1.0;
+    const overloadHours = Math.max(0, (teachingMins / 60) - 6);
+    const overloadScore = overloadHours * 2.0;
+    const afterHoursScore = (afterHoursMins / 60) * 3.0;
+    const prepScore = (teachingMins / 60) * 0.5;
+    const breakBuffer = (breakMins / 60) * 0.5;
+
+    const dailyWSI = baseScore + overloadScore + afterHoursScore + prepScore - breakBuffer;
+    const weeklyWSI = Math.max(0, dailyWSI * 5);
+
+    // Risk Level determination
+    let riskLevel = 'Low Risk';
+    if (weeklyWSI > 80) {
+        riskLevel = 'Critical Risk';
+    } else if (weeklyWSI >= 61) {
+        riskLevel = 'High Risk';
+    } else if (weeklyWSI >= 41) {
+        riskLevel = 'Moderate Risk';
+    }
+
+    return {
+        schoolStart,
+        schoolEnd,
+        baseHours,
+        teachingMins,
+        breakMins,
+        afterHoursMins,
+        overloadHours,
+        dailyWSI,
+        weeklyWSI,
+        riskLevel
+    };
+}
+
+/**
+ * 3 & 4. Update Workload Status & Trends + Targeted Recommendations UI
+ */
+function updateWSIUI(wsi) {
+    const statusCard = document.querySelector('.intel-grid .intel-card:not(.reco-card)');
+    const recoCard = document.querySelector('.intel-card.reco-card');
+
+    if (!wsi) return;
+
+    const roundedWsi = Math.round(wsi.weeklyWSI);
+    const fillWidth = Math.min(100, Math.max(0, roundedWsi));
+
+    let riskBadgeStyle = 'background:#ecfdf5; color:#059669; border:1px solid #a7f3d0;';
+    let riskFillColor = '#10b981';
+    let riskIcon = 'fa-check-circle';
+
+    if (wsi.riskLevel === 'Critical Risk') {
+        riskBadgeStyle = 'background:#fee2e2; color:#991b1b; border:1px solid #f87171;';
+        riskFillColor = '#991b1b';
+        riskIcon = 'fa-circle-radiation';
+    } else if (wsi.riskLevel === 'High Risk') {
+        riskBadgeStyle = 'background:#fef2f2; color:#b91c1c; border:1px solid #fecaca;';
+        riskFillColor = '#dc2626';
+        riskIcon = 'fa-exclamation-triangle';
+    } else if (wsi.riskLevel === 'Moderate Risk') {
+        riskBadgeStyle = 'background:#fffbeb; color:#b45309; border:1px solid #fde68a;';
+        riskFillColor = '#f59e0b';
+        riskIcon = 'fa-exclamation-circle';
+    }
+
+    // Contributors List
+    const contributors = [];
+    if (wsi.afterHoursMins > 120) {
+        contributors.push(`<div><i class="fas fa-exclamation-circle" style="color:#ea580c; margin-right:6px;"></i> After-hours duties exceed 2 hours</div>`);
+    }
+    if (wsi.overloadHours > 0) {
+        contributors.push(`<div><i class="fas fa-exclamation-circle" style="color:#ea580c; margin-right:6px;"></i> Teaching load exceeds 6 hours/day</div>`);
+    }
+    if (contributors.length === 0) {
+        contributors.push(`<div><i class="fas fa-check-circle" style="color:#10b981; margin-right:6px;"></i> Load is within policy limits.</div>`);
+    }
+
+    if (statusCard) {
+        const scoreMain = statusCard.querySelector('.risk-score-main');
+        const statusBadge = statusCard.querySelector('.risk-status-badge');
+        const barFill = statusCard.querySelector('.risk-bar-fill');
+        const contribList = statusCard.querySelector('.contributors-list');
+
+        if (scoreMain && statusBadge && barFill && contribList) {
+            scoreMain.textContent = `Risk Score: ${roundedWsi}`;
+            statusBadge.setAttribute('style', `padding: 4px 10px; border-radius: 999px; font-size: 0.82rem; font-weight: 700; display: inline-flex; align-items: center; gap: 5px; ${riskBadgeStyle}`);
+            statusBadge.innerHTML = `<i class="fas ${riskIcon}"></i> ${wsi.riskLevel}`;
+            barFill.style.width = `${fillWidth}%`;
+            barFill.style.backgroundColor = riskFillColor;
+            contribList.innerHTML = contributors.join('');
+        } else {
+            statusCard.innerHTML = `
+                <h4><i class="fas fa-crosshairs"></i> Workload Status &amp; Trends</h4>
+                <div class="risk-indicator-box" style="margin: 1rem 0;">
+                    <div class="risk-indicator-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                        <span class="risk-score-main" style="font-size: 1.15rem; font-weight: 800; color: #0f172a;">Risk Score: ${roundedWsi}</span>
+                        <span class="risk-status-badge" style="padding: 4px 10px; border-radius: 999px; font-size: 0.82rem; font-weight: 700; display: inline-flex; align-items: center; gap: 5px; ${riskBadgeStyle}">
+                            <i class="fas ${riskIcon}"></i> ${wsi.riskLevel}
+                        </span>
+                    </div>
+                    <div class="risk-bar-bg" style="width: 100%; height: 10px; background: #e2e8f0; border-radius: 999px; overflow: hidden;">
+                        <div class="risk-bar-fill" style="width: ${fillWidth}%; height: 100%; background-color: ${riskFillColor}; border-radius: 999px; transition: width 0.4s ease;"></div>
+                    </div>
+                </div>
+                <div>
+                    <h5 class="contributors-title" style="margin: 0.75rem 0 0.5rem 0; font-size: 0.9rem; font-weight: 700; color: #334155;">Risk Contributors:</h5>
+                    <div class="contributors-list" style="font-size: 0.85rem; color: #475569; display: flex; flex-direction: column; gap: 6px;">
+                        ${contributors.join('')}
+                    </div>
+                </div>
+            `;
+        }
+    }
+
+    // Recommendations List
+    const recommendations = [];
+    if (wsi.weeklyWSI > 80) {
+        recommendations.push(`
+            <div class="reco-item" style="display: flex; gap: 10px; align-items: flex-start; margin-bottom: 0.75rem;">
+                <i class="fas fa-triangle-exclamation" style="color: #dc2626; font-size: 1.1rem; margin-top: 2px;"></i>
+                <div><strong>URGENT:</strong> Reduce after-school duties and teaching overload immediately to prevent burnout.</div>
+            </div>
+        `);
+    }
+    if (wsi.afterHoursMins > 120) {
+        recommendations.push(`
+            <div class="reco-item" style="display: flex; gap: 10px; align-items: flex-start; margin-bottom: 0.75rem;">
+                <i class="fas fa-star" style="color: #ea580c; font-size: 1.1rem; margin-top: 2px;"></i>
+                <div><strong>HIGH PRIORITY:</strong> Transfer after-hours duties to a peer.</div>
+            </div>
+        `);
+    }
+    if (wsi.overloadHours > 0) {
+        recommendations.push(`
+            <div class="reco-item" style="display: flex; gap: 10px; align-items: flex-start; margin-bottom: 0.75rem;">
+                <i class="fas fa-clock" style="color: #d97706; font-size: 1.1rem; margin-top: 2px;"></i>
+                <div>Reduce direct teaching time to stay within the 6-hour Magna Carta limit.</div>
+            </div>
+        `);
+    }
+    if (recommendations.length === 0) {
+        recommendations.push(`
+            <div class="reco-item" style="display: flex; gap: 10px; align-items: flex-start; margin-bottom: 0.75rem;">
+                <i class="fas fa-check-circle" style="color: #10b981; font-size: 1.1rem; margin-top: 2px;"></i>
+                <div>Schedule is balanced and compliant with DepEd workload standards.</div>
+            </div>
+        `);
+    }
+
+    if (recoCard) {
+        const emptyP = recoCard.querySelector('p');
+        if (emptyP) emptyP.remove();
+
+        let listEl = recoCard.querySelector('.reco-list');
+        const actionRow = recoCard.querySelector('.action-row');
+        if (!listEl) {
+            listEl = document.createElement('div');
+            listEl.className = 'reco-list';
+            listEl.style.margin = '1rem 0';
+            if (actionRow) recoCard.insertBefore(listEl, actionRow);
+            else recoCard.appendChild(listEl);
+        }
+        listEl.innerHTML = recommendations.join('');
+    }
+}
+
+/**
+ * 5. Update the "Workload Comparison" Chart with WSI Data
+ */
+function updateWorkloadComparisonChart(weeklyWSI) {
+    const workloadCanvas = document.getElementById('teacherWorkloadChart');
+    if (!workloadCanvas) return;
+    if (teacherWorkloadChartInstance) teacherWorkloadChartInstance.destroy();
+
+    const currentWsi = typeof weeklyWSI === 'number' ? Number(weeklyWSI.toFixed(1)) : 0;
+    let userColor = '#10b981'; // Low Risk
+    if (currentWsi > 80) userColor = '#991b1b'; // Critical Risk
+    else if (currentWsi >= 61) userColor = '#dc2626'; // High Risk
+    else if (currentWsi >= 41) userColor = '#f59e0b'; // Moderate Risk
+
+    teacherWorkloadChartInstance = new Chart(workloadCanvas.getContext('2d'), {
+        type: 'bar',
+        data: {
+            labels: ['Your WSI', 'Low Risk Limit (40)', 'Critical Limit (80)'],
+            datasets: [{
+                label: 'Weekly WSI',
+                data: [currentWsi, 40, 80],
+                backgroundColor: [userColor, '#10b981', '#ef4444'],
+                borderRadius: 6
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: { callbacks: { label: (ctx) => `${ctx.label}: ${ctx.raw} WSI` } }
+            },
+            scales: {
+                y: {
+                    min: 0,
+                    max: Math.max(100, Math.ceil(currentWsi / 10) * 10),
+                    title: { display: true, text: 'Weekly WSI' },
+                    ticks: { stepSize: 20 }
+                },
+                x: { grid: { display: false } }
+            }
+        }
+    });
+}
+
 function renderTeacherCharts(userTotal, teachingHrs, ancillaryHrs, latestAssessment = null, deptAvg = 0, deptMin = 0) {
     Chart.defaults.font.family = "'Inter', sans-serif";
     Chart.defaults.color = '#64748b';
@@ -677,37 +982,8 @@ function renderTeacherCharts(userTotal, teachingHrs, ancillaryHrs, latestAssessm
         });
     }
 
-    // 3. Workload Comparison Chart (Horizontal Bar Chart)
-    const workloadCanvas = document.getElementById('teacherWorkloadChart');
-    if (workloadCanvas) {
-        if (teacherWorkloadChartInstance) teacherWorkloadChartInstance.destroy();
-
-        teacherWorkloadChartInstance = new Chart(workloadCanvas.getContext('2d'), {
-            type: 'bar',
-            data: {
-                labels: ['Your Total', 'Dept Avg', 'Dept Min'],
-                datasets: [{
-                    label: 'Hours / Week',
-                    data: [userTotal.toFixed(1), deptAvg.toFixed(1), deptMin.toFixed(1)],
-                    backgroundColor: ['#C8102E', '#64748b', '#cbd5e1'],
-                    borderRadius: 6
-                }]
-            },
-            options: {
-                indexAxis: 'y',
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false },
-                    tooltip: { callbacks: { label: (ctx) => `${ctx.raw} hrs/week` } }
-                },
-                scales: {
-                    x: { min: 0, max: 50, title: { display: true, text: 'Hours per Week' } },
-                    y: { grid: { display: false } }
-                }
-            }
-        });
-    }
+    // 3. Workload Comparison Chart (WSI Scale)
+    updateWorkloadComparisonChart(0);
 }
 
 // ============================================================
