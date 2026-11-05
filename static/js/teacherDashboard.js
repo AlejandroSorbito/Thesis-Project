@@ -150,6 +150,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     loadWorkload();
     setupClassProgramUpload();
+    setupGradeUpload();
 
     // Restore saved extracted class program data across refreshes & sessions
     try {
@@ -1322,6 +1323,155 @@ function setupESF7UploadListener() {
         } finally {
             uploadBtn.innerHTML = `<i class="fas fa-cloud-upload-alt"></i> Upload Program`;
             uploadBtn.disabled = false;
+        }
+    });
+}
+
+/**
+ * Learner Assessment & Grades Storage Excel/CSV Upload Handler
+ */
+function setupGradeUpload() {
+    const uploadBtn = document.getElementById('uploadGradesBtn');
+    const fileInput = document.getElementById('gradeFileInput');
+    const tableBody = document.getElementById('studentGradesTableBody');
+
+    if (!uploadBtn || !fileInput) return;
+
+    uploadBtn.addEventListener('click', () => {
+        fileInput.value = '';
+        fileInput.click();
+    });
+
+    fileInput.addEventListener('change', async (event) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        if (typeof XLSX === 'undefined') {
+            alert('Spreadsheet processor (XLSX) library is not loaded. Please refresh the page.');
+            return;
+        }
+
+        try {
+            const data = await file.arrayBuffer();
+            const workbook = XLSX.read(data, { type: 'array' });
+            const firstSheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[firstSheetName];
+            // 1. Read sheet as 2D array to locate headers dynamically
+            const rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
+
+            if (!rawData || rawData.length === 0) {
+                alert('The uploaded file is empty or contains no readable data.');
+                return;
+            }
+
+            // 2. Find the Header Row dynamically by matching "LRN"
+            let headerRowIndex = -1;
+            for (let i = 0; i < rawData.length; i++) {
+                const row = rawData[i];
+                if (Array.isArray(row) && row.some(cell => String(cell).trim().toUpperCase() === 'LRN')) {
+                    headerRowIndex = i;
+                    break;
+                }
+            }
+
+            if (headerRowIndex === -1) {
+                alert('Could not find the "LRN" header row in the spreadsheet. Please verify the file headers.');
+                return;
+            }
+
+            // 3. Map Header Row
+            const headers = rawData[headerRowIndex].map(h => String(h).trim());
+
+            // Case-insensitive column matcher
+            const getVal = (row, candidates) => {
+                const keys = Object.keys(row);
+                for (const cand of candidates) {
+                    const match = keys.find(k => k.trim().toLowerCase() === cand.toLowerCase());
+                    if (match && row[match] !== undefined && row[match] !== '') {
+                        return row[match];
+                    }
+                }
+                return '';
+            };
+
+            const parsedStudents = [];
+
+            // 4. Loop through data rows starting after headerRowIndex
+            for (let i = headerRowIndex + 1; i < rawData.length; i++) {
+                const rowArr = rawData[i];
+                if (!rowArr || !Array.isArray(rowArr) || rowArr.length === 0) continue;
+
+                // Create row object mapping headers[j] -> rowArr[j]
+                const row = {};
+                headers.forEach((h, colIdx) => {
+                    if (h) row[h] = rowArr[colIdx] !== undefined ? rowArr[colIdx] : '';
+                });
+
+                const lrn = String(getVal(row, ['LRN', 'Learner Reference Number', 'Student ID', 'ID'])).trim();
+                const name = String(getVal(row, ['Learner Name', 'Learner Full Name', 'Name', 'Student Name', 'Full Name'])).trim();
+
+                // Ignore completely empty rows or summary rows (e.g. Class Average, Highest, Lowest)
+                if (!lrn && !name) continue;
+                const checkStr = `${lrn} ${name}`.toLowerCase();
+                if (checkStr.includes('class average') || checkStr.includes('highest') || checkStr.includes('lowest') || checkStr.includes('average')) {
+                    continue;
+                }
+
+                // 8 Learning Areas
+                const filipino = parseFloat(getVal(row, ['Filipino', 'FIL'])) || 0;
+                const english = parseFloat(getVal(row, ['English', 'ENG'])) || 0;
+                const math = parseFloat(getVal(row, ['Mathematics', 'Math', 'MATH'])) || 0;
+                const science = parseFloat(getVal(row, ['Science', 'SCI'])) || 0;
+                const ap = parseFloat(getVal(row, ['AP', 'Araling Panlipunan'])) || 0;
+                const mapeh = parseFloat(getVal(row, ['MAPEH'])) || 0;
+                const gmrc = parseFloat(getVal(row, ['GMRC', 'GMRC / Values Education', 'Values Education', 'ESP', 'EsP'])) || 0;
+                const epp = parseFloat(getVal(row, ['EPP', 'EPP (Edukasyong Pantahanan at Pangkabuhayan)', 'TLE'])) || 0;
+
+                if (!lrn && !name) continue;
+
+                const subjects = [filipino, english, math, science, ap, mapeh, gmrc, epp];
+                const sum = subjects.reduce((a, b) => a + b, 0);
+                const average = parseFloat((sum / 8).toFixed(1));
+
+                parsedStudents.push({ lrn, name, filipino, english, math, science, ap, mapeh, gmrc, epp, average });
+            }
+
+            if (parsedStudents.length === 0) {
+                alert('No valid student grade records found. Please ensure headers match LRN, Learner Name, and the 8 subjects.');
+                return;
+            }
+
+            if (tableBody) {
+                tableBody.innerHTML = '';
+                parsedStudents.forEach(st => {
+                    const isPassed = st.average >= 75;
+                    const statusClass = isPassed ? 'status-confirmed' : 'status-pending';
+                    const statusText = isPassed ? 'Passed' : 'Failed';
+                    const statusStyle = isPassed
+                        ? 'background: #dcfce7; color: #15803d; border: 1px solid #86efac; padding: 2px 8px; border-radius: 4px; font-weight: 700;'
+                        : 'background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; padding: 2px 8px; border-radius: 4px; font-weight: 700;';
+
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${st.lrn || '-'}</td>
+                        <td><strong>${st.name || '-'}</strong></td>
+                        <td>${st.filipino || 0}</td>
+                        <td>${st.english || 0}</td>
+                        <td>${st.math || 0}</td>
+                        <td>${st.science || 0}</td>
+                        <td>${st.ap || 0}</td>
+                        <td>${st.mapeh || 0}</td>
+                        <td>${st.gmrc || 0}</td>
+                        <td>${st.epp || 0}</td>
+                        <td><strong>${st.average.toFixed(1)}</strong></td>
+                        <td><span class="status-badge ${statusClass}" style="${statusStyle}">${statusText}</span></td>
+                    `;
+                    tableBody.appendChild(tr);
+                });
+            }
+        } catch (err) {
+            console.error('Error parsing grade file:', err);
+            alert('Failed to parse the grade file. Please ensure it is a valid Excel (.xlsx, .xls) or CSV document.');
         }
     });
 }
