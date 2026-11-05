@@ -119,7 +119,7 @@ window.closeMessageModal = function() {
     if (modal) modal.style.display = 'none';
 };
 
-// 1. Populate Recipients Dropdown (Only Registered Users)
+// 1. Populate Recipients Dropdown (Only Registered Users in Same School / Admins see all)
 async function populateRecipientDropdown() {
     try {
         const select = document.getElementById('recipient');
@@ -128,11 +128,28 @@ async function populateRecipientDropdown() {
         const { data: { session } } = await window.supabaseClient.auth.getSession();
         if (!session) return;
 
-        // Fetch all registered user profiles except self
-        const { data: profiles, error } = await window.supabaseClient
+        // Fetch current user profile to check their school and role
+        const { data: currentProfile } = await window.supabaseClient
             .from('profiles')
-            .select('id, first_name, last_name, role, department')
+            .select('role, school, assigned_institution')
+            .eq('id', session.user.id)
+            .single();
+
+        const currentUserSchool = currentProfile?.school || currentProfile?.assigned_institution;
+        const isAdmin = (currentProfile?.role || '').toLowerCase() === 'admin';
+
+        // Query registered user profiles except self
+        let query = window.supabaseClient
+            .from('profiles')
+            .select('id, first_name, last_name, role, department, school, assigned_institution')
             .neq('id', session.user.id);
+
+        // If not admin, restrict to users in the same school
+        if (!isAdmin && currentUserSchool) {
+            query = query.eq('school', currentUserSchool);
+        }
+
+        const { data: profiles, error } = await query;
 
         if (error) {
             console.error("Error loading profiles for recipient dropdown:", error.message);
@@ -147,9 +164,16 @@ async function populateRecipientDropdown() {
             profiles.forEach(p => {
                 window.globalProfilesCache[p.id] = p;
                 const fullName = `${p.first_name || ''} ${p.last_name || ''}`.trim();
+                const schoolName = p.school || p.assigned_institution || '';
                 const roleLower = (p.role || '').toLowerCase();
                 const roleTitle = roleLower === 'principal' ? 'Principal' : (roleLower === 'admin' ? 'Administrator' : 'Teacher');
-                const displayName = fullName ? `${fullName} (${roleTitle})` : `${roleTitle}'s Office`;
+
+                let displayName;
+                if (fullName) {
+                    displayName = schoolName ? `${fullName} (${schoolName})` : `${fullName} (${roleTitle})`;
+                } else {
+                    displayName = schoolName ? `${roleTitle}'s Office (${schoolName})` : `${roleTitle}'s Office`;
+                }
 
                 const opt = document.createElement('option');
                 opt.value = p.id;

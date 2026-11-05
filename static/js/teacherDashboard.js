@@ -469,6 +469,8 @@ async function applyExtractedProgramToDashboard(data) {
         }
     }
 
+    renderWorkloadFromClassProgram(data);
+
     const totEl = document.getElementById('dashTotalDemographics');
     const boysEl = document.getElementById('dashBoysCount');
     const girlsEl = document.getElementById('dashGirlsCount');
@@ -525,6 +527,110 @@ async function applyExtractedProgramToDashboard(data) {
         }
     } catch(e){
         console.warn("Storage sync notice:", e);
+    }
+}
+
+/**
+ * Aggregates subjects from the Class Program scheduleMatrix and renders
+ * the rows into the "Official Workload (From Class Program)" table.
+ */
+function renderWorkloadFromClassProgram(data) {
+    const tableBody = document.querySelector('#official-workload-section .data-table tbody');
+    const metaEl = document.querySelector('#official-workload-section .card-title-meta');
+    if (!tableBody) return;
+
+    const emptyStateHtml = `
+        <tr>
+            <td colspan="7" style="text-align: center; padding: 1.5rem; color: #64748b;">
+                No workload records found. Choose a class program spreadsheet (.xlsx) above and click <strong>Upload Program</strong> to populate your schedule.
+            </td>
+        </tr>`;
+
+    if (!data || !data.scheduleMatrix || !Array.isArray(data.scheduleMatrix) || data.scheduleMatrix.length === 0) {
+        tableBody.innerHTML = emptyStateHtml;
+        if (metaEl) metaEl.textContent = '';
+        return;
+    }
+
+    const section = data.section || 'Grade 2 - A';
+    const dayColumns = [
+        { key: 'mon', label: 'MON' },
+        { key: 'tue', label: 'TUE' },
+        { key: 'wed', label: 'WED' },
+        { key: 'thu', label: 'THU' },
+        { key: 'fri', label: 'FRI' }
+    ];
+
+    const nonTeachingKeywords = ['flag ceremony', 'health break', 'recess'];
+    const isNonTeaching = (name) => {
+        if (!name || typeof name !== 'string') return true;
+        const lower = name.trim().toLowerCase();
+        if (!lower) return true;
+        return nonTeachingKeywords.some(keyword => lower.includes(keyword));
+    };
+
+    const subjectsMap = {};
+    let grandTotalMinutes = 0;
+
+    data.scheduleMatrix.forEach(row => {
+        const rowMin = parseInt(row.min, 10) || 60;
+        const rowTime = row.time || '';
+
+        dayColumns.forEach(day => {
+            const rawSubj = (row[day.key] || '').trim();
+            if (isNonTeaching(rawSubj)) return;
+
+            const normKey = rawSubj.toLowerCase();
+            if (!subjectsMap[normKey]) {
+                subjectsMap[normKey] = {
+                    name: rawSubj,
+                    days: new Set(),
+                    totalMinutes: 0,
+                    time: rowTime
+                };
+            }
+
+            subjectsMap[normKey].days.add(day.label);
+            subjectsMap[normKey].totalMinutes += rowMin;
+            grandTotalMinutes += rowMin;
+            if (!subjectsMap[normKey].time && rowTime) {
+                subjectsMap[normKey].time = rowTime;
+            }
+        });
+    });
+
+    const subjectKeys = Object.keys(subjectsMap);
+    if (subjectKeys.length === 0) {
+        tableBody.innerHTML = emptyStateHtml;
+        if (metaEl) metaEl.textContent = '';
+        return;
+    }
+
+    const allDays = ['MON', 'TUE', 'WED', 'THU', 'FRI'];
+    const generatedRows = subjectKeys.map(key => {
+        const item = subjectsMap[key];
+        const daysList = allDays.filter(d => item.days.has(d));
+        const daysStr = daysList.length === 5 ? 'MON-FRI' : daysList.join(', ');
+        const hoursStr = `${(item.totalMinutes / 60).toFixed(1)} hrs`;
+
+        return `
+            <tr>
+                <td><strong>${item.name}</strong></td>
+                <td>${section}</td>
+                <td>${daysStr}</td>
+                <td>${item.time || '-'}</td>
+                <td><span class="badge" style="background:#e0f2fe; color:#0369a1; padding:2px 8px; border-radius:4px; font-size:0.8rem;">Teaching</span></td>
+                <td>${hoursStr}</td>
+                <td><span class="status-badge status-confirmed"><i class="fas fa-check"></i> Active</span></td>
+            </tr>
+        `;
+    }).join('');
+
+    tableBody.innerHTML = generatedRows;
+
+    const totalHours = (grandTotalMinutes / 60).toFixed(1);
+    if (metaEl) {
+        metaEl.textContent = `Total: ${totalHours} hrs/week`;
     }
 }
 
@@ -851,22 +957,27 @@ async function initTeacherDashboard() {
     }
 }
 
-// 2. Render Live Data into Team's Official Workload (From eSF7) Table
+// 2. Render Live Data into Team's Official Workload (From Class Program) Table
 function renderOfficialWorkloadTable(teachingLoads, ancillaryDuties) {
-    const tableBody = document.querySelector('.data-table tbody');
+    const tableBody = document.querySelector('#official-workload-section .data-table tbody') || document.querySelector('.data-table tbody');
     if (!tableBody) return;
 
-    tableBody.innerHTML = '';
-
     if (teachingLoads.length === 0 && ancillaryDuties.length === 0) {
+        // If already populated by class program, do not overwrite with empty state
+        const existingRows = tableBody.querySelectorAll('tr');
+        const isPopulated = Array.from(existingRows).some(r => !r.textContent.includes('No workload records found'));
+        if (isPopulated) return;
+
         tableBody.innerHTML = `
             <tr>
                 <td colspan="7" style="text-align: center; padding: 1.5rem; color: #64748b;">
-                    No eSF7 workload records found. Choose an eSF7 spreadsheet (.xlsx) above and click <strong>Upload Program</strong> to populate your schedule.
+                    No workload records found. Choose a class program spreadsheet (.xlsx) above and click <strong>Upload Program</strong> to populate your schedule.
                 </td>
             </tr>`;
         return;
     }
+
+    tableBody.innerHTML = '';
 
     // Render Teaching Loads Rows
     teachingLoads.forEach(load => {
@@ -912,7 +1023,7 @@ function setupESF7UploadListener() {
 
         const file = fileInput.files[0];
         if (!file) {
-            alert("Please select an eSF7 spreadsheet file (.xlsx) first.");
+            alert("Please select a class program spreadsheet file (.xlsx) first.");
             return;
         }
 
