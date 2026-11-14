@@ -140,10 +140,10 @@
                                 </div>
                             </div>
                             <div class="report-meta">
-                                <div><strong>Teacher Code:</strong> <span class="teacher-code-badge">TCH-012</span></div>
-                                <div><strong>Report ID:</strong> RPT-2026-T1-012</div>
-                                <div><strong>Generated:</strong> October 22, 2026</div>
-                                <div><strong>Status:</strong> <span class="status-badge-support">Support Recommended</span></div>
+                                <div><strong>Teacher Code:</strong> <span class="teacher-code-badge" id="reportTeacherCode">Loading...</span></div>
+                                <div><strong>Report ID:</strong> <span id="reportId">Loading...</span></div>
+                                <div><strong>Generated:</strong> <span id="reportGeneratedDate">Loading...</span></div>
+                                <div><strong>Status:</strong> <span class="status-badge-support" id="reportStatusBadge">Loading...</span></div>
                             </div>
                         </header>
 
@@ -153,11 +153,11 @@
                         <section class="report-section">
                             <h3 class="section-heading"><i class="fas fa-user-circle"></i> Faculty Profile &amp; Workload Overview</h3>
                             <div class="details-grid">
-                                <div><strong>Teacher Code:</strong> <span class="text-blue font-bold">TCH-012</span></div>
-                                <div><strong>Faculty Name:</strong> Sarah J. Cruz</div>
-                                <div><strong>Position / Title:</strong> Teacher II / Class Adviser</div>
-                                <div><strong>Assigned Section:</strong> Grade 2 - Section A (ROVCMS)</div>
-                                <div><strong>Assessment Cycle:</strong> Trimester 1 Statutory Review (SY 2026–2027)</div>
+                                <div><strong>Teacher Code:</strong> <span class="text-blue font-bold" id="gridTeacherCode">Loading...</span></div>
+                                <div><strong>Faculty Name:</strong> <span id="facultyName">Loading...</span></div>
+                                <div><strong>Position / Title:</strong> <span id="facultyPosition">Loading...</span></div>
+                                <div><strong>Assigned Section:</strong> <span id="assignedSection">Loading...</span></div>
+                                <div><strong>Assessment Cycle:</strong> <span id="assessmentCycle">Loading...</span></div>
                                 <div><strong>Evaluating System:</strong> Kandili Intelligence Engine v2.2</div>
                             </div>
                         </section>
@@ -167,12 +167,15 @@
                             <h3 class="section-heading"><i class="fas fa-heartbeat"></i> Faculty Well-being &amp; Capacity Profile</h3>
                             <div class="summary-highlight-box positive-frame">
                                 <div class="summary-score-column">
-                                    <div class="score-large">72<span class="score-denom">/100</span></div>
+                                    <div class="score-large"><span id="mbiOverallScore">--</span><span class="score-denom" id="mbiDenom">/100</span></div>
                                     <div class="score-label">Workload Balance Index</div>
+                                    <div class="score-progress-bar" id="overallProgressBar" style="height: 6px; width: 100%; max-width: 140px; background: #e2e8f0; border-radius: 3px; margin: 8px auto 0; overflow: hidden;">
+                                        <div id="overallProgressFill" style="height: 100%; width: 0%; background: #3b82f6; border-radius: 3px; transition: width 0.3s ease;"></div>
+                                    </div>
                                 </div>
                                 <div class="summary-text-column">
-                                    <h4>Proactive Support &amp; Capacity Optimization Identified</h4>
-                                    <p>Faculty member <strong>TCH-012</strong> demonstrates high dedication and positive professional efficacy (<strong>PA = 31/48</strong>). To maintain long-term teaching sustainability and prevent clinical burnout, the intelligence engine identifies a key opportunity to optimize capacity by offloading <strong>hidden ancillary tasks (SDRRM, School Feeding/4Ps, &amp; Form 137 Encoding)</strong> totaling <strong>5.0 hrs/week</strong>[cite: 5].</p>
+                                    <h4 id="summaryHeading">Faculty Well-being Profile</h4>
+                                    <p id="summaryText">Loading assessment data...</p>
                                 </div>
                             </div>
                         </section>
@@ -193,20 +196,35 @@
                                     <tbody>
                                         <tr>
                                             <td><strong>Emotional Exhaustion &amp; Strain (EE)</strong></td>
-                                            <td>38 / 54</td>
-                                            <td><span class="badge-support">Rest Buffer Recommended</span></td>
+                                            <td>
+                                                <span id="scoreEE">Loading...</span>
+                                                <div id="barEE" style="height: 6px; width: 100%; max-width: 120px; background: #e2e8f0; border-radius: 3px; margin-top: 6px; overflow: hidden;">
+                                                    <div id="fillEE" style="height: 100%; width: 0%; background: #ef4444; border-radius: 3px; transition: width 0.3s ease;"></div>
+                                                </div>
+                                            </td>
+                                            <td><span class="badge-support" id="statusEE">Loading...</span></td>
                                             <td>0 - 26 (Balanced Energy)</td>
                                         </tr>
                                         <tr>
                                             <td><strong>Depersonalization / Connection (DP)</strong></td>
-                                            <td>14 / 30</td>
-                                            <td><span class="badge-mod">Moderate Efficacy</span></td>
+                                            <td>
+                                                <span id="scoreDP">Loading...</span>
+                                                <div id="barDP" style="height: 6px; width: 100%; max-width: 120px; background: #e2e8f0; border-radius: 3px; margin-top: 6px; overflow: hidden;">
+                                                    <div id="fillDP" style="height: 100%; width: 0%; background: #f59e0b; border-radius: 3px; transition: width 0.3s ease;"></div>
+                                                </div>
+                                            </td>
+                                            <td><span class="badge-mod" id="statusDP">Loading...</span></td>
                                             <td>0 - 9 (High Engagement)</td>
                                         </tr>
                                         <tr>
                                             <td><strong>Personal Accomplishment (PA)</strong></td>
-                                            <td>31 / 48</td>
-                                            <td><span class="badge-good">Satisfactory Achievement</span></td>
+                                            <td>
+                                                <span id="scorePA">Loading...</span>
+                                                <div id="barPA" style="height: 6px; width: 100%; max-width: 120px; background: #e2e8f0; border-radius: 3px; margin-top: 6px; overflow: hidden;">
+                                                    <div id="fillPA" style="height: 100%; width: 0%; background: #10b981; border-radius: 3px; transition: width 0.3s ease;"></div>
+                                                </div>
+                                            </td>
+                                            <td><span class="badge-good" id="statusPA">Loading...</span></td>
                                             <td>32 - 48 (High Sense of Efficacy)</td>
                                         </tr>
                                     </tbody>
@@ -223,12 +241,10 @@
                                     Workload Index = (0.50 &times; EE_normalized) + (0.30 &times; Ancillary_Hidden_Factor) + (0.20 &times; DP_normalized)
                                 </div>
                                 <ul class="formula-notes">
-                                    <li><strong>Emotional Energy Component:</strong> (38 / 54) &times; 100 = 70.37 &rarr; Contributes <strong>35.18 pts</strong></li>
-                                    <li><strong>Hidden Ancillary Contribution:</strong> 
-                                        SDRRM (2.5 hrs) + Feeding/4Ps (1.5 hrs) + Form 137 (1.0 hr) = 5.0 hrs over limit &rarr; Contributes <strong>24.00 pts</strong>
-                                    </li>
-                                    <li><strong>Professional Connection Factor:</strong> (14 / 30) &times; 100 = 46.66 &rarr; Contributes <strong>13.33 pts</strong></li>
-                                    <li><strong>Composite Sustainability Index:</strong> <strong>72.51 &approx; 72 (Elevated Risk)</strong></li>
+                                    <li><strong>Emotional Energy Component:</strong> <span id="formulaEEText">Loading...</span></li>
+                                    <li><strong>Workload &amp; Ancillary Hours:</strong> <span id="formulaAncillaryText">Loading...</span></li>
+                                    <li><strong>Professional Connection Factor:</strong> <span id="formulaDPText">Loading...</span></li>
+                                    <li><strong>Composite Sustainability Index:</strong> <strong id="formulaCompositeText">Loading...</strong></li>
                                 </ul>
                             </div>
                         </section>
@@ -236,17 +252,17 @@
                         <!-- Official System Recommendations -->
                         <section class="report-section">
                             <h3 class="section-heading"><i class="fas fa-hand-holding-heart"></i> Institutional Support Recommendations</h3>
-                            <div class="recommendations-container">
+                            <div class="recommendations-container" id="recommendationsContainer">
                                 <div class="reco-card-item">
                                     <div class="reco-tag">Action 1</div>
-                                    <div class="reco-content">
-                                        <strong>Ancillary Reallocation:</strong> Offload designated <em>SDRRM Coordinator and Feeding Program</em> duties (4.0 hrs/wk) to available co-faculty (TCH-015) to restore teaching prep reserves[cite: 5].
+                                    <div class="reco-content" id="recoAction1">
+                                        Loading institutional recommendations...
                                     </div>
                                 </div>
                                 <div class="reco-card-item">
                                     <div class="reco-tag alt">Action 2</div>
-                                    <div class="reco-content">
-                                        <strong>Form 137 / SF10 Batching:</strong> Allocate 1.5 consecutive hours of uninterrupted administrative time on Friday afternoons for learner record encoding[cite: 5].
+                                    <div class="reco-content" id="recoAction2">
+                                        Loading institutional recommendations...
                                     </div>
                                 </div>
                             </div>
@@ -266,7 +282,6 @@
     <script src="../../static/js/supabaseClient.js"></script>
     <script src="../../static/js/authGuard.js" data-allowed-roles="teacher,principal"></script>
     <script src="../../static/js/logout.js"></script>
-    <script src="../../js/sidebarToggle.js"></script>
     <script src="../../static/js/teacherReport.js"></script>
 </body>
 </html>
