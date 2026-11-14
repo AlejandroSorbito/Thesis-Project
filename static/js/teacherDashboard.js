@@ -88,6 +88,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 .limit(1);
             
             const latestAssessment = assessments && assessments.length > 0 ? assessments[0] : null;
+            window.latestBurnoutAssessment = latestAssessment;
 
             // Update Risk Index & Assessment Date in DOM
             const riskValEl = document.querySelector('.risk-index-value');
@@ -421,6 +422,7 @@ async function processExcelClassProgram(file) {
 
 async function applyExtractedProgramToDashboard(data) {
     if (!data) return;
+    window.currentExtractedProgram = data;
 
     const secEl = document.getElementById('dashSectionVal');
     const roomEl = document.getElementById('dashRoomVal');
@@ -899,9 +901,29 @@ function updateWSIUI(wsi) {
  * 5. Update the "Workload Comparison" Chart with WSI Data
  */
 function updateWorkloadComparisonChart(weeklyWSI) {
-    const workloadCanvas = document.getElementById('teacherWorkloadChart');
+    let workloadCanvas = document.getElementById('teacherWorkloadChart');
+    const container = workloadCanvas ? workloadCanvas.parentElement : document.querySelector('.chart-canvas-container:has(#teacherWorkloadChart)') || document.querySelectorAll('.chart-canvas-container')[1];
+
+    if (teacherWorkloadChartInstance) {
+        teacherWorkloadChartInstance.destroy();
+        teacherWorkloadChartInstance = null;
+    }
+
+    if (!weeklyWSI || weeklyWSI === 0) {
+        const emptyStateHtml = '<div style="display:flex; align-items:center; justify-content:center; height:100%; min-height:220px; color:#64748b; font-size:0.9rem; font-weight:500;">Upload your Class Program to generate your Workload Strain Index (WSI).</div>';
+        if (workloadCanvas) {
+            workloadCanvas.outerHTML = emptyStateHtml;
+        } else if (container) {
+            container.innerHTML = emptyStateHtml;
+        }
+        return;
+    }
+
+    if (!workloadCanvas && container) {
+        container.innerHTML = '<canvas id="teacherWorkloadChart"></canvas>';
+        workloadCanvas = document.getElementById('teacherWorkloadChart');
+    }
     if (!workloadCanvas) return;
-    if (teacherWorkloadChartInstance) teacherWorkloadChartInstance.destroy();
 
     const currentWsi = typeof weeklyWSI === 'number' ? Number(weeklyWSI.toFixed(1)) : 0;
     let userColor = '#10b981'; // Low Risk
@@ -1102,29 +1124,122 @@ document.addEventListener('DOMContentLoaded', () => {
 // ============================================================
 // REQUEST LEAVE MODAL HANDLER
 // ============================================================
+async function populateLeaveModalJustification() {
+    const loadEl = document.getElementById('modal-current-load');
+    const exhaustionEl = document.getElementById('modal-exhaustion-index');
+    const badgeEl = document.getElementById('modal-burnout-badge');
+
+    if (loadEl) loadEl.textContent = '—';
+    if (exhaustionEl) exhaustionEl.textContent = '—';
+    if (badgeEl) {
+        badgeEl.style.display = 'none';
+        badgeEl.textContent = '';
+    }
+
+    try {
+        let userId = null;
+        if (window.supabaseClient) {
+            const { data: { session } } = await window.supabaseClient.auth.getSession();
+            userId = session?.user?.id;
+        }
+
+        let latestAssessment = window.latestBurnoutAssessment || null;
+        if (!latestAssessment && window.supabaseClient && userId) {
+            const { data: assessments } = await window.supabaseClient
+                .from('burnout_assessments')
+                .select('risk_index')
+                .eq('teacher_id', userId)
+                .order('created_at', { ascending: false })
+                .limit(1);
+            if (assessments && assessments.length > 0) {
+                latestAssessment = assessments[0];
+            }
+        }
+
+        let programData = window.currentExtractedProgram || null;
+        if (!programData && userId) {
+            const cached = localStorage.getItem(`kandili_extracted_class_program_${userId}`);
+            if (cached) {
+                try { programData = JSON.parse(cached); } catch (e) {}
+            }
+        }
+        if (!programData && window.supabaseClient && userId) {
+            const { data: profile } = await window.supabaseClient
+                .from('profiles')
+                .select('class_program')
+                .eq('id', userId)
+                .single();
+            if (profile && profile.class_program) {
+                programData = profile.class_program;
+            }
+        }
+
+        if (!programData) {
+            return;
+        }
+
+        const wsiResult = typeof calculateWSI === 'function' ? calculateWSI(programData) : null;
+        if (wsiResult && loadEl) {
+            const totalHours = programData.totalLogged 
+                ? Number(programData.totalLogged).toFixed(1)
+                : (wsiResult.baseHours ? (wsiResult.baseHours * 5).toFixed(1) : (wsiResult.teachingMins * 5 / 60).toFixed(1));
+            const wlu = Math.round(wsiResult.weeklyWSI);
+            loadEl.textContent = `${totalHours} hrs (${wlu} WLU)`;
+        }
+
+        const riskIndex = latestAssessment?.risk_index != null ? latestAssessment.risk_index : null;
+        if (riskIndex !== null && exhaustionEl) {
+            exhaustionEl.textContent = `${riskIndex} / 100 Index`;
+        }
+
+        if (badgeEl) {
+            if (riskIndex !== null && riskIndex > 70) {
+                badgeEl.textContent = 'Elevated Burnout Risk';
+                badgeEl.style.display = 'inline-block';
+                badgeEl.style.background = '#fee2e2';
+                badgeEl.style.color = '#dc2626';
+                badgeEl.style.fontSize = '0.72rem';
+                badgeEl.style.fontWeight = '800';
+                badgeEl.style.padding = '0.15rem 0.55rem';
+                badgeEl.style.borderRadius = '999px';
+            } else {
+                badgeEl.style.display = 'none';
+            }
+        }
+    } catch (err) {
+        console.error("Error populating leave modal justification:", err);
+    }
+}
+window.populateLeaveModalJustification = populateLeaveModalJustification;
+
 document.addEventListener('DOMContentLoaded', () => {
     const leaveModal = document.getElementById('requestLeaveModal');
-    // Finds the "+ Request Leave" link in the card title
-    const requestLeaveBtn = document.querySelector('a[href="#"][style*="Request Leave"]') || document.querySelector('.card-title a');
+    const openLeaveBtns = document.querySelectorAll('#openLeaveModalBtn, a[href="#"][style*="Request Leave"]');
     const closeBtn = document.getElementById('leaveModalCloseBtn');
     const cancelBtn = document.getElementById('cancelLeaveBtn');
     const submitBtn = document.getElementById('submitLeaveBtn');
 
     // Open Modal
-    if (requestLeaveBtn && leaveModal) {
-        requestLeaveBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            leaveModal.classList.add('active');
-            document.body.style.overflow = 'hidden';
+    const openLeaveModal = async () => {
+        if (!leaveModal) return;
+        await populateLeaveModalJustification();
+        leaveModal.classList.add('active');
+        document.body.style.overflow = 'hidden';
 
-            // Default dates to today
-            const today = new Date().toISOString().split('T')[0];
-            const startDate = document.getElementById('leaveStartDate');
-            const endDate = document.getElementById('leaveEndDate');
-            if (startDate) startDate.value = today;
-            if (endDate) endDate.value = today;
+        // Default dates to today
+        const today = new Date().toISOString().split('T')[0];
+        const startDate = document.getElementById('leaveStartDate');
+        const endDate = document.getElementById('leaveEndDate');
+        if (startDate) startDate.value = today;
+        if (endDate) endDate.value = today;
+    };
+
+    openLeaveBtns.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            openLeaveModal();
         });
-    }
+    });
 
     // Close Modal helper
     function closeLeaveModal() {

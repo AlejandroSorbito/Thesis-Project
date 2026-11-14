@@ -716,21 +716,17 @@
                         <span style="font-size: 0.74rem; font-weight: 800; text-transform: uppercase; color: #0038A8; letter-spacing: 0.04em;">
                             <i class="fas fa-file-medical"></i> Workload &amp; Health Justification
                         </span>
-                        <span style="background: #fee2e2; color: #dc2626; font-size: 0.72rem; font-weight: 800; padding: 0.15rem 0.55rem; border-radius: 999px;">
-                            Elevated Burnout Risk
-                        </span>
+                        <span id="modal-burnout-badge" class="status-badge" style="display:none;"></span>
                     </div>
 
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 0.65rem;">
                         <div style="background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 0.65rem;">
                             <span style="font-size: 0.72rem; color: #64748b; display: block;">Current Weekly Load:</span>
-                            <strong style="font-size: 0.95rem; color: #0f172a;" id="leaveModalWorkloadHrs">27.0 hrs (68 WLU)</strong>
-                            <small style="font-size: 0.7rem; color: #d97706; display: block; font-weight: 600;">Moderate Overload Tier</small>
+                            <strong id="modal-current-load" style="font-size: 0.95rem; color: #0f172a;">—</strong>
                         </div>
                         <div style="background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 0.65rem;">
                             <span style="font-size: 0.72rem; color: #64748b; display: block;">MBI-ES Exhaustion Index:</span>
-                            <strong style="font-size: 0.95rem; color: #dc2626;" id="leaveModalMbiScore">72 / 100 Index</strong>
-                            <small style="font-size: 0.7rem; color: #dc2626; display: block; font-weight: 600;">High Fatigue Subscale</small>
+                            <strong id="modal-exhaustion-index" style="font-size: 0.95rem; color: #dc2626;">—</strong>
                         </div>
                     </div>
 
@@ -846,7 +842,12 @@
             const cancelLeaveBtn = document.getElementById('cancelLeaveBtn');
             const submitLeaveBtn = document.getElementById('submitLeaveBtn');
 
-            openLeaveBtn?.addEventListener('click', () => leaveModal?.classList.add('active'));
+            openLeaveBtn?.addEventListener('click', () => {
+                if (typeof populateLeaveModalJustification === 'function') {
+                    populateLeaveModalJustification();
+                }
+                leaveModal?.classList.add('active');
+            });
             closeLeaveBtn?.addEventListener('click', () => leaveModal?.classList.remove('active'));
             cancelLeaveBtn?.addEventListener('click', () => leaveModal?.classList.remove('active'));
 
