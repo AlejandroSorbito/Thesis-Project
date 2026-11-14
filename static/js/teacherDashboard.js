@@ -902,19 +902,19 @@ function updateWSIUI(wsi) {
  */
 function updateWorkloadComparisonChart(weeklyWSI) {
     let workloadCanvas = document.getElementById('teacherWorkloadChart');
-    const container = workloadCanvas ? workloadCanvas.parentElement : document.querySelector('.chart-canvas-container:has(#teacherWorkloadChart)') || document.querySelectorAll('.chart-canvas-container')[1];
+    const container = workloadCanvas?.parentElement || document.querySelectorAll('.charts-row .chart-canvas-container')[1] || document.querySelector('.chart-canvas-container:has(#teacherWorkloadChart)');
 
     if (teacherWorkloadChartInstance) {
         teacherWorkloadChartInstance.destroy();
         teacherWorkloadChartInstance = null;
     }
 
-    if (!weeklyWSI || weeklyWSI === 0) {
-        const emptyStateHtml = '<div style="display:flex; align-items:center; justify-content:center; height:100%; min-height:220px; color:#64748b; font-size:0.9rem; font-weight:500;">Upload your Class Program to generate your Workload Strain Index (WSI).</div>';
-        if (workloadCanvas) {
-            workloadCanvas.outerHTML = emptyStateHtml;
-        } else if (container) {
-            container.innerHTML = emptyStateHtml;
+    const numWsi = Number(weeklyWSI);
+    const hasClassProgram = !!(window.currentExtractedProgram && (window.currentExtractedProgram.scheduleMatrix?.length > 0 || window.currentExtractedProgram.totalLogged > 0));
+
+    if (!hasClassProgram || isNaN(numWsi) || numWsi <= 0) {
+        if (container) {
+            container.innerHTML = '<div style="display:flex; align-items:center; justify-content:center; height:100%; min-height:220px; color:#64748b; font-size:0.9rem; font-weight:500; text-align:center; padding: 0 1rem;">Upload your Class Program to generate your Workload Strain Index (WSI).</div>';
         }
         return;
     }
@@ -925,7 +925,7 @@ function updateWorkloadComparisonChart(weeklyWSI) {
     }
     if (!workloadCanvas) return;
 
-    const currentWsi = typeof weeklyWSI === 'number' ? Number(weeklyWSI.toFixed(1)) : 0;
+    const currentWsi = Number(numWsi.toFixed(1));
     let userColor = '#10b981'; // Low Risk
     if (currentWsi > 80) userColor = '#991b1b'; // Critical Risk
     else if (currentWsi >= 61) userColor = '#dc2626'; // High Risk
