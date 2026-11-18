@@ -9,6 +9,7 @@
  * Based on DO 5, s. 2024 & DM 291, s. 2008
  */
 window.calculateWLUDetails = function(teacherProfile) {
+    teacherProfile = teacherProfile || {};
     const totalTeachingMins = teacherProfile.teaching_loads?.reduce((sum, item) => sum + (item.minutes_per_week || 0), 0) || 0;
     let teachingHours = totalTeachingMins / 60;
 
