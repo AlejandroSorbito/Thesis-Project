@@ -57,19 +57,19 @@
           <p>Monitor school-wide workload balance, identify high-risk teachers, and guide interventions with confidence.</p>
           <div class="stat-grid">
             <div class="stat">
-              <strong>42</strong>
+              <strong id="statTeachersTracked">—</strong>
               <span>Teachers tracked</span>
             </div>
             <div class="stat">
-              <strong>88%</strong>
+              <strong id="statPulseCompletion">—%</strong>
               <span>Pulse completion</span>
             </div>
             <div class="stat">
-              <strong>2</strong>
+              <strong id="statCriticalAlerts">—</strong>
               <span>Critical alerts</span>
             </div>
             <div class="stat">
-              <strong>5</strong>
+              <strong id="statPendingReminders">—</strong>
               <span>Pending reminders</span>
             </div>
           </div>
@@ -196,5 +196,9 @@
       updateIndexClock();
     });
   </script>
+  <!-- Supabase & Landing Stats Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="./static/js/supabaseClient.js"></script>
+  <script src="./static/js/landingStats.js"></script>
 </body>
 </html>
