@@ -149,7 +149,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
-    loadWorkload();
+    await loadWorkload();
     setupClassProgramUpload();
     setupGradeUpload();
 
@@ -902,7 +902,10 @@ function updateWSIUI(wsi) {
  */
 function updateWorkloadComparisonChart(weeklyWSI) {
     let workloadCanvas = document.getElementById('teacherWorkloadChart');
-    const container = workloadCanvas?.parentElement || document.querySelectorAll('.charts-row .chart-canvas-container')[1] || document.querySelector('.chart-canvas-container:has(#teacherWorkloadChart)');
+    const container = document.getElementById('teacherWorkloadChartContainer')
+        || workloadCanvas?.parentElement
+        || document.querySelectorAll('.charts-row .chart-canvas-container')[1]
+        || document.querySelector('.chart-canvas-container:has(#teacherWorkloadChart)');
 
     if (teacherWorkloadChartInstance) {
         teacherWorkloadChartInstance.destroy();
@@ -1006,7 +1009,15 @@ function renderTeacherCharts(userTotal, teachingHrs, ancillaryHrs, latestAssessm
     }
 
     // 3. Workload Comparison Chart (WSI Scale)
-    updateWorkloadComparisonChart(0);
+    if (!teacherWorkloadChartInstance) {
+        const prog = window.currentExtractedProgram;
+        const wsi = (prog && typeof calculateWSI === 'function') ? calculateWSI(prog) : null;
+        if (wsi && wsi.weeklyWSI) {
+            updateWorkloadComparisonChart(wsi.weeklyWSI);
+        } else {
+            updateWorkloadComparisonChart(0);
+        }
+    }
 }
 
 // ============================================================
