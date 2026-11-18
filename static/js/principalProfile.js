@@ -205,7 +205,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
-    // 6. Photo Picker Handler
+    // 6. Photo Picker & Upload Operations
     const photoInput = document.getElementById('avatarFileInput');
     const openPhotoBtn = document.getElementById('updatePhotoBtn');
     const badgePhotoBtn = document.getElementById('avatarBadgeBtn');
@@ -215,15 +215,85 @@ document.addEventListener('DOMContentLoaded', async () => {
     openPhotoBtn?.addEventListener('click', triggerPhotoPicker);
     badgePhotoBtn?.addEventListener('click', triggerPhotoPicker);
 
-    photoInput?.addEventListener('change', function () {
-        if (this.files && this.files[0]) {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                if (imageDisplay) {
-                    imageDisplay.src = e.target.result;
-                }
-            };
-            reader.readAsDataURL(this.files[0]);
+    photoInput?.addEventListener('change', async function () {
+        if (!this.files || !this.files[0]) return;
+        const file = this.files[0];
+
+        // Validate size (<= 2MB)
+        if (file.size > 2 * 1024 * 1024) {
+            alert("File size exceeds 2MB limit. Please choose a smaller image.");
+            this.value = '';
+            return;
+        }
+
+        // Validate MIME type
+        const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+        if (!allowedTypes.includes(file.type)) {
+            alert("Invalid file format. Please upload a JPG, PNG, or WebP image.");
+            this.value = '';
+            return;
+        }
+
+        const originalBtnText = openPhotoBtn ? openPhotoBtn.innerHTML : '';
+        if (openPhotoBtn) {
+            openPhotoBtn.disabled = true;
+            openPhotoBtn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Uploading...`;
+        }
+        if (badgePhotoBtn) {
+            badgePhotoBtn.disabled = true;
+        }
+
+        try {
+            const { data: { session }, error: sessionError } = await window.supabaseClient.auth.getSession();
+            if (sessionError || !session?.user?.id) {
+                alert("Session expired. Please log in again.");
+                return;
+            }
+
+            const fileExt = file.name.split('.').pop() || 'png';
+            const filePath = `${session.user.id}/avatar.${fileExt}`;
+
+            const { error: uploadError } = await window.supabaseClient.storage
+                .from('profile-pictures')
+                .upload(filePath, file, { upsert: true, cacheControl: '3600' });
+
+            if (uploadError) {
+                console.error("Storage upload error:", uploadError);
+                alert("Upload failed: " + uploadError.message);
+                return;
+            }
+
+            const { data: { publicUrl } } = window.supabaseClient.storage
+                .from('profile-pictures')
+                .getPublicUrl(filePath);
+
+            const { error: dbError } = await window.supabaseClient
+                .from('profiles')
+                .update({ avatar_url: publicUrl })
+                .eq('id', session.user.id);
+
+            if (dbError) {
+                console.error("Database update error:", dbError);
+                alert("Failed to save profile picture: " + dbError.message);
+                return;
+            }
+
+            if (imageDisplay) {
+                imageDisplay.src = publicUrl + '?t=' + Date.now();
+            }
+            alert("Profile picture updated successfully!");
+        } catch (err) {
+            console.error("Unexpected error during photo upload:", err);
+            alert("An unexpected error occurred during upload.");
+        } finally {
+            photoInput.value = '';
+            if (openPhotoBtn) {
+                openPhotoBtn.disabled = false;
+                openPhotoBtn.innerHTML = originalBtnText;
+            }
+            if (badgePhotoBtn) {
+                badgePhotoBtn.disabled = false;
+            }
         }
     });
 

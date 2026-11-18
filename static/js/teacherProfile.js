@@ -52,6 +52,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('display-department-pill').innerText = profile.department || "No Department";
         document.getElementById('display-advisory-pill').innerText = profile.advisory_class || "No Advisory";
 
+        // Avatar Image
+        const avatarImg = document.getElementById('profileImageDisplay');
+        if (avatarImg) {
+            if (profile.avatar_url) {
+                avatarImg.src = profile.avatar_url;
+            } else {
+                const initialsName = `${profile.first_name || 'Teacher'} ${profile.last_name || ''}`.trim();
+                avatarImg.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(initialsName)}&background=0038A8&color=fff&size=128`;
+            }
+        }
+
         // Pre-fill the hidden form inputs for editing
         document.getElementById('input-firstName').value = profile.first_name || "";
         document.getElementById('input-lastName').value = profile.last_name || "";
@@ -117,6 +128,89 @@ document.addEventListener('DOMContentLoaded', async () => {
             editSection.style.display = 'none';
             loadProfile(); // Refresh UI instantly
             alert("Profile successfully updated!");
+        }
+    });
+
+    // 5. Photo Picker & Upload Operations
+    const photoInput = document.getElementById('avatarFileInput');
+    const updatePhotoBtn = document.getElementById('updatePhotoBtn');
+    const imageDisplay = document.getElementById('profileImageDisplay');
+
+    updatePhotoBtn?.addEventListener('click', () => photoInput?.click());
+
+    photoInput?.addEventListener('change', async function () {
+        if (!this.files || !this.files[0]) return;
+        const file = this.files[0];
+
+        // Validate size (<= 2MB)
+        if (file.size > 2 * 1024 * 1024) {
+            alert("File size exceeds 2MB limit. Please choose a smaller image.");
+            this.value = '';
+            return;
+        }
+
+        // Validate MIME type
+        const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+        if (!allowedTypes.includes(file.type)) {
+            alert("Invalid file format. Please upload a JPG, PNG, or WebP image.");
+            this.value = '';
+            return;
+        }
+
+        const originalBtnText = updatePhotoBtn ? updatePhotoBtn.innerHTML : '';
+        if (updatePhotoBtn) {
+            updatePhotoBtn.disabled = true;
+            updatePhotoBtn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Uploading...`;
+        }
+
+        try {
+            const { data: { session }, error: sessionError } = await window.supabaseClient.auth.getSession();
+            if (sessionError || !session?.user?.id) {
+                alert("Session expired. Please log in again.");
+                return;
+            }
+
+            const fileExt = file.name.split('.').pop() || 'png';
+            const filePath = `${session.user.id}/avatar.${fileExt}`;
+
+            const { error: uploadError } = await window.supabaseClient.storage
+                .from('profile-pictures')
+                .upload(filePath, file, { upsert: true, cacheControl: '3600' });
+
+            if (uploadError) {
+                console.error("Storage upload error:", uploadError);
+                alert("Upload failed: " + uploadError.message);
+                return;
+            }
+
+            const { data: { publicUrl } } = window.supabaseClient.storage
+                .from('profile-pictures')
+                .getPublicUrl(filePath);
+
+            const { error: dbError } = await window.supabaseClient
+                .from('profiles')
+                .update({ avatar_url: publicUrl })
+                .eq('id', session.user.id);
+
+            if (dbError) {
+                console.error("Database update error:", dbError);
+                alert("Failed to save profile picture: " + dbError.message);
+                return;
+            }
+
+            if (imageDisplay) {
+                imageDisplay.src = publicUrl + '?t=' + Date.now();
+            }
+            alert("Profile picture updated successfully!");
+        } catch (err) {
+            console.error("Unexpected error during photo upload:", err);
+            alert("An unexpected error occurred during upload.");
+        } finally {
+            photoInput.value = '';
+            if (updatePhotoBtn) {
+                updatePhotoBtn.disabled = false;
+                updatePhotoBtn.innerHTML = originalBtnText;
+            }
         }
     });
 });
