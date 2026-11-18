@@ -17,9 +17,14 @@
     }
 
     async function initCalendar() {
+        // 0. Resolve role immediately from sessionStorage or query param fallback
+        let sessionRole = sessionStorage.getItem('kandili_user_role') || new URLSearchParams(window.location.search).get('role') || 'Teacher';
+        userRole = sessionRole.toLowerCase();
+        updateUserRoleBadge(userRole);
+        updateCategoryDropdown();
+
         // 1. Render calendar grid & live header clock immediately with current date
         updateHeaderClock();
-        updateCategoryDropdown();
         renderCalendar();
 
         // 2. Safely check auth & fetch events in background
@@ -37,6 +42,8 @@
 
                     if (profile && profile.role) {
                         userRole = profile.role.toLowerCase();
+                        sessionStorage.setItem('kandili_user_role', profile.role);
+                        updateUserRoleBadge(userRole);
                         updateCategoryDropdown();
                     }
                 }
@@ -47,6 +54,14 @@
 
         await fetchCalendarEvents();
         renderCalendar();
+    }
+
+    function updateUserRoleBadge(role) {
+        const badge = document.getElementById('userRoleBadge');
+        if (!badge) return;
+        const rawRole = (role || 'Teacher').trim();
+        const displayRole = rawRole.charAt(0).toUpperCase() + rawRole.slice(1).toLowerCase();
+        badge.innerHTML = `<i class="fas fa-user-shield"></i> Active Role: ${displayRole}`;
     }
 
     function updateHeaderClock() {
@@ -203,7 +218,7 @@
         const totalCells = Math.ceil((firstWeekday + daysInMonth) / 7) * 7;
 
         const monthLabel = document.getElementById('monthLabel');
-        const calendarGrid = document.getElementById('calendarGrid');
+        const calendarGrid = document.getElementById('calendarMonthGrid') || document.getElementById('calendarGrid');
 
         if (monthLabel) monthLabel.textContent = currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
         if (!calendarGrid) return;
@@ -214,10 +229,10 @@
         const selectedKey = formatDateKey(selectedDate);
         const monthKey = `${year}-${String(month + 1).padStart(2, '0')}`;
 
-        const monthEvents = eventsList.filter(e => isEventOnDate(e, selectedDate) || e.date.startsWith(monthKey));
+        const monthEvents = eventsList.filter(e => isEventOnDate(e, selectedDate) || (e.date && e.date.startsWith(monthKey)));
         
-        const countTotal = document.getElementById('monthEventCount');
-        const countSchool = document.getElementById('schoolCount');
+        const countTotal = document.getElementById('statTotalMonth') || document.getElementById('monthEventCount');
+        const countSchool = document.getElementById('statSchoolwide') || document.getElementById('schoolCount');
         const countPersonal = document.getElementById('deptCount');
 
         if (countTotal) countTotal.textContent = monthEvents.length;
@@ -233,10 +248,10 @@
             const isSelected = cellKey === selectedKey;
 
             const dayEl = document.createElement('div');
-            dayEl.className = `calendar-day${isCurrentMonth ? '' : ' disabled'}${isToday ? ' today' : ''}${isSelected ? ' selected' : ''}`;
+            dayEl.className = `calendar-day${isCurrentMonth ? '' : ' disabled other-month'}${isToday ? ' today' : ''}${isSelected ? ' selected' : ''}`;
             dayEl.innerHTML = `
                 <div class="date-row">
-                    <span class="date-number">${isCurrentMonth ? cellDate.getDate() : ''}</span>
+                    <span class="day-number date-number">${cellDate.getDate()}</span>
                     ${isToday ? '<span class="today-pill" style="background:#0038A8; color:#fff; padding:1px 6px; border-radius:10px; font-size:0.7rem;">Today</span>' : ''}
                 </div>
             `;
@@ -278,8 +293,8 @@
     }
 
     function updateSelectedEvents() {
-        const selectedDateLabel = document.getElementById('selectedDateLabel');
-        const selectedEvents = document.getElementById('selectedEvents');
+        const selectedDateLabel = document.getElementById('inspectorDateText') || document.getElementById('selectedDateLabel');
+        const selectedEvents = document.getElementById('inspectorEventsList') || document.getElementById('selectedEvents');
         const dayEvents = eventsList.filter(e => isEventOnDate(e, selectedDate));
 
         if (selectedDateLabel) selectedDateLabel.textContent = formatDisplayDate(selectedDate);
@@ -333,6 +348,8 @@
                 updateCategoryDropdown();
                 const titleInput = document.getElementById('eventTitle');
                 if (titleInput) titleInput.value = '';
+                const targetDateInput = document.getElementById('eventTargetDate');
+                if (targetDateInput) targetDateInput.value = formatDateKey(selectedDate);
                 eventForm.classList.remove('hidden');
                 eventForm.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 if (titleInput) titleInput.focus();
@@ -367,9 +384,10 @@
                     return;
                 }
 
+                const targetDateVal = document.getElementById('eventTargetDate')?.value || formatDateKey(selectedDate);
                 const newEvent = {
                     id: 'evt-' + Date.now(),
-                    date: formatDateKey(selectedDate),
+                    date: targetDateVal,
                     daysSpan: daysSpanVal,
                     title: title,
                     type: type,
@@ -399,7 +417,7 @@
                             title: title,
                             event_type: type === 'personal' ? 'personal' : 'schoolwide',
                             description: payloadDesc,
-                            start_time: formatDateKey(selectedDate) + 'T00:00:00Z'
+                            start_time: targetDateVal + 'T00:00:00Z'
                         };
                         if (userId) dbRecord.created_by = userId;
 
