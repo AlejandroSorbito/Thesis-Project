@@ -140,10 +140,10 @@
                                 </div>
                             </div>
                             <div class="report-meta">
-                                <div><strong>Teacher Code:</strong> <span class="teacher-code-badge" id="reportTeacherCode">Loading...</span></div>
-                                <div><strong>Report ID:</strong> <span id="reportId">Loading...</span></div>
-                                <div><strong>Generated:</strong> <span id="reportGeneratedDate">Loading...</span></div>
-                                <div><strong>Status:</strong> <span class="status-badge-support" id="reportStatusBadge">Loading...</span></div>
+                                <div><strong>Teacher Code:</strong> <span class="teacher-code-badge" id="reportTeacherCode">—</span></div>
+                                <div><strong>Report ID:</strong> <span id="reportId">—</span></div>
+                                <div><strong>Generated:</strong> <span id="reportGeneratedDate">—</span></div>
+                                <div><strong>Status:</strong> <span class="status-badge-support" id="reportStatusBadge">—</span></div>
                             </div>
                         </header>
 
@@ -153,14 +153,15 @@
                         <section class="report-section">
                             <h3 class="section-heading"><i class="fas fa-user-circle"></i> Faculty Profile &amp; Workload Overview</h3>
                             <div class="details-grid">
-                                <div><strong>Teacher Code:</strong> <span class="text-blue font-bold" id="gridTeacherCode">Loading...</span></div>
-                                <div><strong>Faculty Name:</strong> <span id="facultyName">Loading...</span></div>
-                                <div><strong>Position / Title:</strong> <span id="facultyPosition">Loading...</span></div>
-                                <div><strong>Assigned Section:</strong> <span id="assignedSection">Loading...</span></div>
-                                <div><strong>School / Campus:</strong> <span id="facultySchool">Loading...</span></div>
-                                <div><strong>Weekly Workload:</strong> <span id="reportWorkloadHours">0 hrs</span> (<span id="reportWluScore">0 WLU</span>)</div>
-                                <div><strong>Assessment Date:</strong> <span id="assessmentDate">Not yet assessed</span></div>
-                                <div><strong>Assessment Cycle:</strong> <span id="assessmentCycle">Loading...</span></div>
+                                <div><strong>Teacher Code:</strong> <span class="text-blue font-bold" id="gridTeacherCode">—</span></div>
+                                <div><strong>Faculty Name:</strong> <span id="facultyName">—</span></div>
+                                <div><strong>Position / Title:</strong> <span id="facultyPosition">—</span></div>
+                                <div><strong>Assigned Section:</strong> <span id="assignedSection">—</span></div>
+                                <div><strong>School / Campus:</strong> <span id="facultySchool">—</span></div>
+                                <div><strong>Weekly Workload:</strong> <span id="reportWorkloadHours">0.0 hrs</span> (<span id="reportWluScore">0.0 WLU</span>)</div>
+                                <div><strong>Workload Strain Index (WSI):</strong> <span id="reportWsiScore">—</span></div>
+                                <div><strong>Assessment Date:</strong> <span id="assessmentDate">—</span></div>
+                                <div><strong>Assessment Cycle:</strong> <span id="assessmentCycle">Trimester 1 (SY 2026–2027)</span></div>
                             </div>
                         </section>
 
@@ -169,15 +170,15 @@
                             <h3 class="section-heading"><i class="fas fa-heartbeat"></i> Faculty Well-being &amp; Capacity Profile</h3>
                             <div class="summary-highlight-box positive-frame">
                                 <div class="summary-score-column">
-                                    <div class="score-large"><span id="mbiOverallScore">--</span><span class="score-denom" id="mbiDenom">/100</span></div>
-                                    <div class="score-label">Workload Balance Index</div>
+                                    <div class="score-large"><span id="mbiOverallScore">—</span><span class="score-denom" id="mbiDenom">/100</span></div>
+                                    <div class="score-label">Burnout Risk Index</div>
                                     <div class="score-progress-bar" id="overallProgressBar" style="height: 6px; width: 100%; max-width: 140px; background: #e2e8f0; border-radius: 3px; margin: 8px auto 0; overflow: hidden;">
                                         <div id="overallProgressFill" style="height: 100%; width: 0%; background: #3b82f6; border-radius: 3px; transition: width 0.3s ease;"></div>
                                     </div>
                                 </div>
                                 <div class="summary-text-column">
-                                    <h4 id="summaryHeading">Faculty Well-being Profile</h4>
-                                    <p id="summaryText">Loading assessment data...</p>
+                                    <h4 id="summaryHeading">Overall Burnout Risk: UNASSESSED</h4>
+                                    <p id="summaryText">—</p>
                                 </div>
                             </div>
                         </section>
@@ -196,37 +197,43 @@
                                         </tr>
                                     </thead>
                                     <tbody>
+                                        <tr style="background: #f8fafc;">
+                                            <td><strong>Overall Burnout Risk Assessment</strong></td>
+                                            <td><strong id="scoreOverallRisk">—</strong></td>
+                                            <td><span class="badge-risk" id="badgeOverallRisk">UNASSESSED</span></td>
+                                            <td>DepEd MBI-ES Risk Classification</td>
+                                        </tr>
                                         <tr>
                                             <td><strong>Emotional Exhaustion &amp; Strain (EE)</strong></td>
                                             <td>
-                                                <span id="scoreEE">Loading...</span>
+                                                <span id="scoreEE">—</span>
                                                 <div id="barEE" style="height: 6px; width: 100%; max-width: 120px; background: #e2e8f0; border-radius: 3px; margin-top: 6px; overflow: hidden;">
                                                     <div id="fillEE" style="height: 100%; width: 0%; background: #ef4444; border-radius: 3px; transition: width 0.3s ease;"></div>
                                                 </div>
                                             </td>
-                                            <td><span class="badge-support" id="statusEE">Loading...</span></td>
+                                            <td><span class="badge-support" id="statusEE">—</span></td>
                                             <td>0 - 26 (Balanced Energy)</td>
                                         </tr>
                                         <tr>
                                             <td><strong>Depersonalization / Connection (DP)</strong></td>
                                             <td>
-                                                <span id="scoreDP">Loading...</span>
+                                                <span id="scoreDP">—</span>
                                                 <div id="barDP" style="height: 6px; width: 100%; max-width: 120px; background: #e2e8f0; border-radius: 3px; margin-top: 6px; overflow: hidden;">
                                                     <div id="fillDP" style="height: 100%; width: 0%; background: #f59e0b; border-radius: 3px; transition: width 0.3s ease;"></div>
                                                 </div>
                                             </td>
-                                            <td><span class="badge-mod" id="statusDP">Loading...</span></td>
+                                            <td><span class="badge-mod" id="statusDP">—</span></td>
                                             <td>0 - 9 (High Engagement)</td>
                                         </tr>
                                         <tr>
                                             <td><strong>Personal Accomplishment (PA)</strong></td>
                                             <td>
-                                                <span id="scorePA">Loading...</span>
+                                                <span id="scorePA">—</span>
                                                 <div id="barPA" style="height: 6px; width: 100%; max-width: 120px; background: #e2e8f0; border-radius: 3px; margin-top: 6px; overflow: hidden;">
                                                     <div id="fillPA" style="height: 100%; width: 0%; background: #10b981; border-radius: 3px; transition: width 0.3s ease;"></div>
                                                 </div>
                                             </td>
-                                            <td><span class="badge-good" id="statusPA">Loading...</span></td>
+                                            <td><span class="badge-good" id="statusPA">—</span></td>
                                             <td>32 - 48 (High Sense of Efficacy)</td>
                                         </tr>
                                     </tbody>
@@ -243,32 +250,15 @@
                                     Workload Index = (0.50 &times; EE_normalized) + (0.30 &times; Ancillary_Hidden_Factor) + (0.20 &times; DP_normalized)
                                 </div>
                                 <ul class="formula-notes">
-                                    <li><strong>Emotional Energy Component:</strong> <span id="formulaEEText">Loading...</span></li>
-                                    <li><strong>Workload &amp; Ancillary Hours:</strong> <span id="formulaAncillaryText">Loading...</span></li>
-                                    <li><strong>Professional Connection Factor:</strong> <span id="formulaDPText">Loading...</span></li>
-                                    <li><strong>Composite Sustainability Index:</strong> <strong id="formulaCompositeText">Loading...</strong></li>
+                                    <li><strong>Emotional Energy Component:</strong> <span id="formulaEEText">—</span></li>
+                                    <li><strong>Workload &amp; Ancillary Hours:</strong> <span id="formulaAncillaryText">—</span></li>
+                                    <li><strong>Professional Connection Factor:</strong> <span id="formulaDPText">—</span></li>
+                                    <li><strong>Composite Sustainability Index:</strong> <strong id="formulaCompositeText">—</strong></li>
                                 </ul>
                             </div>
                         </section>
 
-                        <!-- Official System Recommendations -->
-                        <section class="report-section">
-                            <h3 class="section-heading"><i class="fas fa-hand-holding-heart"></i> Institutional Support Recommendations</h3>
-                            <div class="recommendations-container" id="recommendationsContainer">
-                                <div class="reco-card-item">
-                                    <div class="reco-tag">Action 1</div>
-                                    <div class="reco-content" id="recoAction1">
-                                        Loading institutional recommendations...
-                                    </div>
-                                </div>
-                                <div class="reco-card-item">
-                                    <div class="reco-tag alt">Action 2</div>
-                                    <div class="reco-content" id="recoAction2">
-                                        Loading institutional recommendations...
-                                    </div>
-                                </div>
-                            </div>
-                        </section>
+
 
                         <footer class="report-signature-block print-only">
                             <!-- Populated on print / export -->
