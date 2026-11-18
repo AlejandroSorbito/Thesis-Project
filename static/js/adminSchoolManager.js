@@ -63,6 +63,7 @@ function syncSchoolProfiles(schools) {
         if (schoolData[school.short_code]) {
             Object.assign(schoolData[school.short_code], {
                 code: school.short_code,
+                schoolName: school.school_name,
                 fullName: `${school.school_name} (${school.short_code})`,
                 schoolId: school.school_id,
                 district: school.district,
@@ -72,6 +73,7 @@ function syncSchoolProfiles(schools) {
         } else {
             schoolData[school.short_code] = {
                 code: school.short_code,
+                schoolName: school.school_name,
                 fullName: `${school.school_name} (${school.short_code})`,
                 schoolId: school.school_id,
                 district: school.district,
@@ -269,6 +271,7 @@ async function saveNewSchool(event) {
 
     schoolData[school.short_code] = {
         code: school.short_code,
+        schoolName: school.school_name,
         fullName: `${school.school_name} (${school.short_code})`,
         schoolId: school.school_id,
         district: school.district,

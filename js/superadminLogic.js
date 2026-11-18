@@ -1,22 +1,21 @@
 /**
- * Superadmin School Hub Logic v4.1
- * Bulletproof school switcher and demographic rendering
+ * Superadmin School Hub Logic v4.2
+ * Dynamic school switcher & live Supabase demographic/faculty rendering
  */
 
-// School Data Profiles
+// School Node Profiles (metadata & sections; stats, principal, & faculty loaded live from Supabase)
 const schoolData = {
     ROVCMS: {
         code: 'ROVCMS',
+        schoolName: 'Raul O.V. Causing Memorial School',
         fullName: 'Raul O.V. Causing Memorial School (ROVCMS)',
         schoolId: '115204',
         district: 'District II',
         division: 'Division of Iloilo Province',
         location: 'District II, Division of Iloilo Province',
-        principal: 'Mylene Panaguiton',
-        learners: '780',
-        facultyCount: '24',
-        primarySec: '12',
-        intermediateSec: '12',
+        principal: 'Not assigned',
+        learners: '0',
+        facultyCount: '0',
         sections: [
             { grade: 'Grade 1', name: 'Mabini', model: 'Self-Contained Advisory' },
             { grade: 'Grade 1', name: 'Bonifacio', model: 'Self-Contained Advisory' },
@@ -27,25 +26,19 @@ const schoolData = {
             { grade: 'Grade 5', name: 'Emerald', model: 'Departmentalized Delivery' },
             { grade: 'Grade 6', name: 'Ruby', model: 'Departmentalized Delivery' }
         ],
-        faculty: [
-            { code: 'TCH-ROV-001', name: 'Sarah Cruz', grade: 'Grade 2 (Rizal)', model: 'Self-Contained' },
-            { code: 'TCH-ROV-004', name: 'Juan Dela Cruz', grade: 'Grade 5 (Math/Sci)', model: 'Departmentalized' },
-            { code: 'TCH-ROV-008', name: 'Elena Torres', grade: 'Grade 1 (Mabini)', model: 'Self-Contained' },
-            { code: 'TCH-ROV-015', name: 'Roberto Diaz', grade: 'Grade 6 (English)', model: 'Departmentalized' }
-        ]
+        faculty: []
     },
     LJES: {
         code: 'LJES',
+        schoolName: 'Lopez Jaena Elementary School',
         fullName: 'Lopez Jaena Elementary School (LJES)',
         schoolId: '115208',
         district: 'District I',
         division: 'Division of Iloilo Province',
         location: 'District I, Division of Iloilo Province',
-        principal: 'Dr. Arthur S. Morales',
-        learners: '540',
-        facultyCount: '18',
-        primarySec: '8',
-        intermediateSec: '8',
+        principal: 'Not assigned',
+        learners: '0',
+        facultyCount: '0',
         sections: [
             { grade: 'Grade 1', name: 'Sampaguita', model: 'Self-Contained Advisory' },
             { grade: 'Grade 2', name: 'Camia', model: 'Self-Contained Advisory' },
@@ -53,39 +46,43 @@ const schoolData = {
             { grade: 'Grade 4', name: 'Narra', model: 'Departmentalized Delivery' },
             { grade: 'Grade 5', name: 'Molave', model: 'Departmentalized Delivery' }
         ],
-        faculty: [
-            { code: 'TCH-LJE-002', name: 'Maria Santos', grade: 'Grade 3 (Ilang-Ilang)', model: 'Self-Contained' },
-            { code: 'TCH-LJE-006', name: 'Carlos Mendoza', grade: 'Grade 4 (AP/Filipino)', model: 'Departmentalized' },
-            { code: 'TCH-LJE-011', name: 'Jocelyn Reyes', grade: 'Grade 2 (Camia)', model: 'Self-Contained' }
-        ]
+        faculty: []
     },
     SMES: {
         code: 'SMES',
+        schoolName: 'San Miguel Elementary School',
         fullName: 'San Miguel Elementary School (SMES)',
         schoolId: '115215',
         district: 'District III',
         division: 'Division of Iloilo Province',
         location: 'District III, Division of Iloilo Province',
-        principal: 'Grace H. Villanueva',
-        learners: '420',
-        facultyCount: '14',
-        primarySec: '6',
-        intermediateSec: '6',
+        principal: 'Not assigned',
+        learners: '0',
+        facultyCount: '0',
         sections: [
             { grade: 'Grade 1', name: 'Aguinaldo', model: 'Self-Contained Advisory' },
             { grade: 'Grade 2', name: 'Quezon', model: 'Self-Contained Advisory' },
             { grade: 'Grade 5', name: 'Tandang Sora', model: 'Departmentalized Delivery' },
             { grade: 'Grade 6', name: 'Lapu-Lapu', model: 'Departmentalized Delivery' }
         ],
-        faculty: [
-            { code: 'TCH-SME-001', name: 'Ramon Garcia', grade: 'Grade 6 (Science)', model: 'Departmentalized' },
-            { code: 'TCH-SME-005', name: 'Patricia Ramos', grade: 'Grade 1 (Aguinaldo)', model: 'Self-Contained' },
-            { code: 'TCH-SME-009', name: 'Dennis Alcantara', grade: 'Grade 5 (Math)', model: 'Departmentalized' }
-        ]
+        faculty: []
     }
 };
 
 let currentSelectedSchool = 'ROVCMS';
+let currentLiveFaculty = [];
+
+function matchesSchoolNode(profile, schoolObj) {
+    const pSchool = (profile.school || profile.assigned_institution || '').trim().toLowerCase();
+    if (!pSchool) return false;
+    const cleanName = (schoolObj.schoolName || schoolObj.fullName.replace(/\s*\([^)]*\)\s*$/, '')).trim().toLowerCase();
+    const fullName = (schoolObj.fullName || '').trim().toLowerCase();
+    const code = (schoolObj.code || '').trim().toLowerCase();
+    if (pSchool === cleanName || pSchool === fullName || pSchool === code) return true;
+    // Handle Raul / Raoul spelling variation for Causing Memorial School
+    if (code === 'rovcms' && pSchool.includes('causing memorial school')) return true;
+    return false;
+}
 
 document.addEventListener('DOMContentLoaded', () => {
     // 1. Lock active user role to admin
@@ -104,7 +101,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initFacultySearch();
 
     // 5. Initial Render
-    loadSchoolData('ROVCMS');
+    loadSchoolData(currentSelectedSchool);
 });
 
 // Setup date, refresh, and logout
@@ -124,8 +121,8 @@ function initAdminHeader() {
         e.preventDefault();
         if (typeof kandiliLogout === 'function') {
             kandiliLogout();
-        } else if (confirm("Log out of the Superadmin Console?")) {
-            window.location.href = "../login.html";
+        } else if (confirm('Log out of the Superadmin Console?')) {
+            window.location.href = '../login.html';
         }
     });
 }
@@ -135,6 +132,10 @@ function initSchoolFilter() {
     const schoolFilter = document.getElementById('adminSchoolFilter');
     schoolFilter?.addEventListener('change', () => {
         const schoolKey = schoolFilter.value;
+        if (schoolKey === 'all') {
+            loadAllSchoolsConsolidated();
+            return;
+        }
         if (!schoolData[schoolKey]) return;
 
         currentSelectedSchool = schoolKey;
@@ -161,8 +162,8 @@ function renderManagedSchools() {
     `).join('');
 }
 
-// 2. Load School Profile, Demographics, Sections & Faculty
-function loadSchoolData(schoolKey) {
+// 2. Load School Profile, Demographics, Sections & Live Supabase Faculty
+async function loadSchoolData(schoolKey) {
     const data = schoolData[schoolKey];
     if (!data) return;
     currentSelectedSchool = schoolKey;
@@ -187,18 +188,23 @@ function loadSchoolData(schoolKey) {
             schoolId
         );
     }
-    if (princEl) princEl.textContent = data.principal;
 
-    // Stats
     const learnersEl = document.getElementById('demoLearners');
     const facultyEl = document.getElementById('demoFaculty');
     const priSecEl = document.getElementById('demoPrimarySec');
     const intSecEl = document.getElementById('demoIntermediateSec');
 
-    if (learnersEl) learnersEl.textContent = data.learners;
-    if (facultyEl) facultyEl.textContent = data.facultyCount;
-    if (priSecEl) priSecEl.textContent = data.primarySec;
-    if (intSecEl) intSecEl.textContent = data.intermediateSec;
+    // No learners table exists -> always display 0
+    if (learnersEl) learnersEl.textContent = '0';
+    if (facultyEl) facultyEl.textContent = '0';
+    if (princEl) princEl.textContent = 'Loading...';
+
+    // Compute primary (Grades 1-3) and intermediate (Grades 4-6) section counts dynamically
+    const sections = data.sections || [];
+    const primaryCount = sections.filter(s => /Grade\s*[1-3]/i.test(s.grade)).length;
+    const intermediateCount = sections.filter(s => /Grade\s*[4-6]/i.test(s.grade)).length;
+    if (priSecEl) priSecEl.textContent = String(primaryCount);
+    if (intSecEl) intSecEl.textContent = String(intermediateCount);
 
     // Update labels in forms and sections
     document.querySelectorAll('.activeSchoolCodeLabel').forEach(el => {
@@ -208,17 +214,112 @@ function loadSchoolData(schoolKey) {
     // Populate Sections Table
     const secTable = document.getElementById('sectionsTableBody');
     if (secTable) {
-        secTable.innerHTML = data.sections.map(s => `
-            <tr>
-                <td><strong>${s.grade}</strong></td>
-                <td>${s.name}</td>
-                <td><span class="badge-status-active">${s.model}</span></td>
-            </tr>
-        `).join('');
+        if (sections.length === 0) {
+            secTable.innerHTML = `<tr><td colspan="3" style="text-align:center; color:#64748b; padding:1.5rem;">No sections registered for this school node.</td></tr>`;
+        } else {
+            secTable.innerHTML = sections.map(s => `
+                <tr>
+                    <td><strong>${s.grade}</strong></td>
+                    <td>${s.name}</td>
+                    <td><span class="badge-status-active">${s.model}</span></td>
+                </tr>
+            `).join('');
+        }
     }
 
+    // Fetch live faculty count, roster, and assigned principal from Supabase
+    let liveFaculty = [];
+    let assignedPrincipal = 'Not assigned';
+    if (window.supabaseClient) {
+        try {
+            const { data: profiles, error } = await window.supabaseClient
+                .from('profiles')
+                .select('id, first_name, last_name, role, school, assigned_institution, teacher_code, grade_level, department, advisory_class')
+                .in('role', ['teacher', 'principal']);
+
+            if (!error && Array.isArray(profiles)) {
+                const schoolTeachers = profiles.filter(p => (p.role || '').toLowerCase() === 'teacher' && matchesSchoolNode(p, data));
+                const schoolPrincipal = profiles.find(p => (p.role || '').toLowerCase() === 'principal' && matchesSchoolNode(p, data));
+
+                if (schoolPrincipal) {
+                    assignedPrincipal = [schoolPrincipal.first_name, schoolPrincipal.last_name].filter(Boolean).join(' ').trim() || 'Not assigned';
+                }
+
+                liveFaculty = schoolTeachers.map((t, idx) => {
+                    const grade = t.advisory_class || t.grade_level || t.department || 'Unassigned';
+                    const isPrimary = /Grade\s*[1-3]/i.test(grade);
+                    return {
+                        code: t.teacher_code || `TCH-${String(idx + 1).padStart(3, '0')}`,
+                        name: [t.first_name, t.last_name].filter(Boolean).join(' ').trim() || 'Faculty Member',
+                        grade,
+                        model: isPrimary ? 'Self-Contained' : 'Departmentalized'
+                    };
+                });
+            }
+        } catch (err) {
+            console.error('Error loading live school node stats:', err);
+        }
+    }
+
+    currentLiveFaculty = liveFaculty;
+    if (facultyEl) facultyEl.textContent = String(liveFaculty.length);
+    if (princEl) princEl.textContent = assignedPrincipal;
+
     // Populate Faculty Roster Table
-    renderFacultyTable(data.faculty);
+    renderFacultyTable(liveFaculty);
+}
+
+// Consolidated View for "All District Schools"
+async function loadAllSchoolsConsolidated() {
+    const titleEl = document.getElementById('currentSchoolTitle');
+    const locEl = document.getElementById('currentSchoolLocation');
+    const princEl = document.getElementById('currentSchoolPrincipal');
+    const learnersEl = document.getElementById('demoLearners');
+    const facultyEl = document.getElementById('demoFaculty');
+    const priSecEl = document.getElementById('demoPrimarySec');
+    const intSecEl = document.getElementById('demoIntermediateSec');
+
+    if (titleEl) titleEl.textContent = 'All District Schools (Consolidated)';
+    if (locEl) locEl.innerHTML = `<i class="fas fa-location-dot"></i> DepEd Division Cluster &bull; ${Object.keys(schoolData).length} Registered School Nodes`;
+    if (princEl) princEl.textContent = 'Division Wide';
+    if (learnersEl) learnersEl.textContent = '0';
+
+    const allSections = Object.values(schoolData).flatMap(s => s.sections || []);
+    if (priSecEl) priSecEl.textContent = String(allSections.filter(s => /Grade\s*[1-3]/i.test(s.grade)).length);
+    if (intSecEl) intSecEl.textContent = String(allSections.filter(s => /Grade\s*[4-6]/i.test(s.grade)).length);
+
+    document.querySelectorAll('.activeSchoolCodeLabel').forEach(el => {
+        el.textContent = 'ALL';
+    });
+
+    let liveFaculty = [];
+    if (window.supabaseClient) {
+        try {
+            const { data: teachers, error } = await window.supabaseClient
+                .from('profiles')
+                .select('id, first_name, last_name, role, school, teacher_code, grade_level, department, advisory_class')
+                .eq('role', 'teacher');
+
+            if (!error && Array.isArray(teachers)) {
+                liveFaculty = teachers.map((t, idx) => {
+                    const grade = t.advisory_class || t.grade_level || t.department || 'Unassigned';
+                    const isPrimary = /Grade\s*[1-3]/i.test(grade);
+                    return {
+                        code: t.teacher_code || `TCH-${String(idx + 1).padStart(3, '0')}`,
+                        name: [t.first_name, t.last_name].filter(Boolean).join(' ').trim() || 'Faculty Member',
+                        grade,
+                        model: isPrimary ? 'Self-Contained' : 'Departmentalized'
+                    };
+                });
+            }
+        } catch (err) {
+            console.error('Error loading consolidated faculty:', err);
+        }
+    }
+
+    currentLiveFaculty = liveFaculty;
+    if (facultyEl) facultyEl.textContent = String(liveFaculty.length);
+    renderFacultyTable(liveFaculty);
 }
 
 function renderFacultyTable(facultyList) {
@@ -265,7 +366,7 @@ function initSectionCreation() {
         const name = document.getElementById('secName').value.trim();
         const model = document.getElementById('secModel').value;
 
-        if (!name) return;
+        if (!name || !schoolData[currentSelectedSchool]) return;
 
         schoolData[currentSelectedSchool].sections.unshift({
             grade,
@@ -285,7 +386,7 @@ function initFacultySearch() {
     const input = document.getElementById('facultySearchInput');
     input?.addEventListener('input', () => {
         const query = (input.value || '').toLowerCase().trim();
-        const allFaculty = schoolData[currentSelectedSchool]?.faculty || [];
+        const allFaculty = currentLiveFaculty || [];
         
         const filtered = allFaculty.filter(f => 
             f.name.toLowerCase().includes(query) || 

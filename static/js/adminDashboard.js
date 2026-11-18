@@ -1,6 +1,9 @@
 // static/adminDashboard.js
 
 document.addEventListener('DOMContentLoaded', async () => {
+    // 0. Load Logged-In Admin Name into Welcome Banner
+    await loadAdminWelcomeProfile();
+
     // 1. Initial Load: Faculty Directory
     await loadFacultyDirectory();
     
@@ -30,6 +33,31 @@ document.addEventListener('DOMContentLoaded', async () => {
     // 7. Setup Add Teacher Drawer Form Submission
     setupAddTeacherForm();
 });
+
+async function loadAdminWelcomeProfile() {
+    const nameEl = document.getElementById('adminFullName');
+    if (!nameEl || !window.supabaseClient) return;
+
+    try {
+        const { data: { session } } = await window.supabaseClient.auth.getSession();
+        if (!session?.user) return;
+
+        const { data: profile, error } = await window.supabaseClient
+            .from('profiles')
+            .select('first_name, last_name')
+            .eq('id', session.user.id)
+            .single();
+
+        if (!error && profile) {
+            const fullName = [profile.first_name, profile.last_name].filter(Boolean).join(' ').trim();
+            if (fullName) {
+                nameEl.textContent = fullName;
+            }
+        }
+    } catch (err) {
+        console.error('Failed to load admin profile name:', err);
+    }
+}
 
 /* ============================================================
    DRAWER TOGGLE (Open / Close)
