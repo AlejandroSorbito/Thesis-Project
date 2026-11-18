@@ -1,4 +1,4 @@
-// static/js/landingStats.js — Dynamic Metrics for Landing Page
+// static/js/landingStats.js — Dynamic Metrics for Landing Page via RPC
 document.addEventListener('DOMContentLoaded', async () => {
     if (!window.supabaseClient) {
         console.warn('Supabase client not available on landing page.');
@@ -11,59 +11,43 @@ document.addEventListener('DOMContentLoaded', async () => {
     const elReminders = document.getElementById('statPendingReminders');
 
     try {
-        // Parallel fetch for optimal load speed
-        const [teachersRes, assessmentsRes, criticalRes] = await Promise.allSettled([
-            // 1. Teachers Tracked (role = 'teacher')
-            window.supabaseClient
-                .from('profiles')
-                .select('id', { count: 'exact' })
-                .eq('role', 'teacher'),
+        const { data, error } = await window.supabaseClient.rpc('get_public_landing_stats');
 
-            // 2. Assessed Teachers (Distinct teacher_ids who took pulse)
-            window.supabaseClient
-                .from('burnout_assessments')
-                .select('teacher_id'),
-
-            // 3. Critical Alerts (Assessments with risk_index >= 70)
-            window.supabaseClient
-                .from('burnout_assessments')
-                .select('id', { count: 'exact', head: true })
-                .gte('risk_index', 70)
-        ]);
-
-        // 1. Calculate Teachers Tracked
-        let totalTeachers = 0;
-        let teachersLoaded = false;
-        if (teachersRes.status === 'fulfilled' && !teachersRes.value.error && teachersRes.value.data) {
-            totalTeachers = teachersRes.value.count !== null ? teachersRes.value.count : teachersRes.value.data.length;
-            if (elTeachers) elTeachers.textContent = String(totalTeachers);
-            teachersLoaded = true;
+        if (error || !data) {
+            console.warn('Could not fetch public landing stats:', error?.message);
+            return; // Leave default '—' placeholders intact
         }
 
-        // 2. Calculate Pulse Completion & Pending Reminders
-        if (assessmentsRes.status === 'fulfilled' && !assessmentsRes.value.error && assessmentsRes.value.data) {
-            const distinctTeachers = new Set(assessmentsRes.value.data.map(a => a.teacher_id).filter(Boolean));
-            const completedCount = distinctTeachers.size;
+        const teachersTracked = Number(data.teachers_tracked) || 0;
+        const completedPulse = Number(data.completed_pulse) || 0;
+        const criticalAlerts = Number(data.critical_alerts) || 0;
 
-            if (teachersLoaded && totalTeachers > 0) {
-                const completionRate = Math.round((completedCount / totalTeachers) * 100);
-                if (elPulse) elPulse.textContent = `${completionRate}%`;
-
-                const pendingReminders = Math.max(0, totalTeachers - completedCount);
-                if (elReminders) elReminders.textContent = String(pendingReminders);
-            } else if (teachersLoaded && totalTeachers === 0) {
-                if (elPulse) elPulse.textContent = '0%';
-                if (elReminders) elReminders.textContent = '0';
-            }
+        // 1. Teachers Tracked
+        if (elTeachers) {
+            elTeachers.textContent = String(teachersTracked);
         }
 
-        // 3. Calculate Critical Alerts
-        if (criticalRes.status === 'fulfilled' && !criticalRes.value.error) {
-            const criticalCount = criticalRes.value.count !== null ? criticalRes.value.count : 0;
-            if (elCritical) elCritical.textContent = String(criticalCount);
+        // 2. Critical Alerts
+        if (elCritical) {
+            elCritical.textContent = String(criticalAlerts);
+        }
+
+        // 3. Pulse Completion (%)
+        if (elPulse) {
+            const completionRate = teachersTracked > 0 
+                ? Math.round((completedPulse / teachersTracked) * 100) 
+                : 0;
+            elPulse.textContent = `${completionRate}%`;
+        }
+
+        // 4. Pending Reminders
+        if (elReminders) {
+            const pendingReminders = Math.max(0, teachersTracked - completedPulse);
+            elReminders.textContent = String(pendingReminders);
         }
 
     } catch (err) {
-        console.warn('Could not populate landing stats:', err);
+        console.warn('Unexpected error fetching landing stats:', err);
+        // Leave default '—' placeholders intact
     }
 });
