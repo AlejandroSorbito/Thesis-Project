@@ -183,7 +183,7 @@
                                 <span class="risk-card-label">Underloaded Teachers</span>
                                 <span class="risk-card-action text-info">&lt; 36 WLU</span>
                             </div>
-                            <button class="risk-card-btn" id="btnViewUnderload" data-filter="underload" type="button" onclick="window.location.href='workload_reports_directory.html'">
+                            <button class="risk-card-btn" id="btnViewUnderload" data-filter="underload" type="button" onclick="window.location.href='workload_reports_directory.html?tier=underload'">
                                 View List <i class="fas fa-arrow-right"></i>
                             </button>
                         </div>
@@ -199,7 +199,7 @@
                                 <span class="risk-card-label">Optimal Load Teachers</span>
                                 <span class="risk-card-action text-success">36–54 WLU</span>
                             </div>
-                            <button class="risk-card-btn" id="btnViewOptimal" data-filter="optimal" type="button" onclick="window.location.href='workload_reports_directory.html'">
+                            <button class="risk-card-btn" id="btnViewOptimal" data-filter="optimal" type="button" onclick="window.location.href='workload_reports_directory.html?tier=optimal'">
                                 View List <i class="fas fa-arrow-right"></i>
                             </button>
                         </div>
@@ -215,7 +215,7 @@
                                 <span class="risk-card-label">High Load Teachers</span>
                                 <span class="risk-card-action text-warning">54–75 WLU</span>
                             </div>
-                            <button class="risk-card-btn" id="btnViewHighLoad" data-filter="high" type="button" onclick="window.location.href='workload_reports_directory.html'">
+                            <button class="risk-card-btn" id="btnViewHighLoad" data-filter="high" type="button" onclick="window.location.href='workload_reports_directory.html?tier=high'">
                                 View List <i class="fas fa-arrow-right"></i>
                             </button>
                         </div>
@@ -231,7 +231,7 @@
                                 <span class="risk-card-label">Overloaded Teachers</span>
                                 <span class="risk-card-action text-danger">&gt; 75 WLU</span>
                             </div>
-                            <button class="risk-card-btn" id="btnViewOverload" data-filter="overload" type="button" onclick="window.location.href='workload_reports_directory.html'">
+                            <button class="risk-card-btn" id="btnViewOverload" data-filter="overload" type="button" onclick="window.location.href='workload_reports_directory.html?tier=overload'">
                                 View List <i class="fas fa-arrow-right"></i>
                             </button>
                         </div>
@@ -241,13 +241,16 @@
                 <!-- SECTION 2: BURNOUT RISK ASSESSMENT SECTION -->
                 <section id="section-burnout-risk" style="margin-top: 2.5rem;">
                     <div class="section-header" style="margin-bottom: 1.25rem;">
-                        <div style="display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.25rem;">
+                        <div style="display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.25rem; flex-wrap: wrap;">
                             <h2 style="margin: 0; font-size: 1.35rem; font-weight: 700; color: #0f172a;">
                                 Burnout Risk Assessment (Trimester Cadence)
                             </h2>
                             <span class="badge-subscale-pill">
                                 MBI-ES Standardized
                             </span>
+                            <a href="burnout_reports_directory.html?tier=unassessed" id="burnout-unassessed-pill" style="background:#f1f5f9; color:#475569; border:1px solid #cbd5e1; border-radius:20px; padding:0.2rem 0.7rem; font-size:0.76rem; font-weight:700; text-decoration:none;">
+                                <span id="burnout-count-unassessed">0</span> Unassessed
+                            </a>
                         </div>
                         <p style="margin: 0; font-size: 0.9rem; color: #64748b;">
                             Proactive risk profiling evaluated per trimester (EE, DP, PA subscales) paired with quantified eSF7 workload metrics.
@@ -267,7 +270,7 @@
                                 <p class="burnout-card-desc">Faculty showing low Emotional Exhaustion (&le;16), low Depersonalization (&le;6), and high Personal Accomplishment (&ge;37). Workload is well-managed.</p>
                             </div>
                             <div class="burnout-card-footer">
-                                <button class="burnout-card-btn" id="btnViewLowBurnout" type="button" onclick="window.location.href='burnout_reports_directory.html'">
+                                <button class="burnout-card-btn" id="btnViewLowBurnout" type="button" onclick="window.location.href='burnout_reports_directory.html?tier=low'">
                                     View Roster <i class="fas fa-arrow-right"></i>
                                 </button>
                             </div>
@@ -285,7 +288,7 @@
                                 <p class="burnout-card-desc">Faculty with moderate Emotional Exhaustion (17–26) or Depersonalization (7–12). Early workload adjustment prevents chronic fatigue.</p>
                             </div>
                             <div class="burnout-card-footer">
-                                <button class="burnout-card-btn" id="btnViewModBurnout" type="button" onclick="window.location.href='workload_reports_directory.html'">
+                                <button class="burnout-card-btn" id="btnViewModBurnout" type="button" onclick="window.location.href='burnout_reports_directory.html?tier=moderate'">
                                     Monitor Trends <i class="fas fa-arrow-right"></i>
                                 </button>
                             </div>
@@ -303,7 +306,7 @@
                                 <p class="burnout-card-desc">Faculty scoring high Emotional Exhaustion (&ge;27), high Depersonalization (&ge;13), and low Personal Accomplishment (&le;30). Priority intervention needed.</p>
                             </div>
                             <div class="burnout-card-footer">
-                                <button class="burnout-card-btn" id="btnViewHighBurnout" type="button" onclick="window.location.href='facultydirectory.html'">
+                                <button class="burnout-card-btn" id="btnViewHighBurnout" type="button" onclick="window.location.href='burnout_reports_directory.html?tier=high'">
                                     Review Interventions <i class="fas fa-arrow-right"></i>
                                 </button>
                             </div>

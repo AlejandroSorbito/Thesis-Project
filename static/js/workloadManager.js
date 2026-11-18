@@ -10,8 +10,7 @@
  */
 window.calculateWLUDetails = function(teacherProfile) {
     const totalTeachingMins = teacherProfile.teaching_loads?.reduce((sum, item) => sum + (item.minutes_per_week || 0), 0) || 0;
-    const teachingHours = totalTeachingMins / 60;
-    const teachingWLU = teachingHours * 1.0;
+    let teachingHours = totalTeachingMins / 60;
 
     let ancillaryHours = 0;
     let assignmentHours = 0;
@@ -38,19 +37,157 @@ window.calculateWLUDetails = function(teacherProfile) {
         }
     });
 
+    // Fallback to uploaded Class Program when teaching_loads table is empty
+    const cp = teacherProfile.class_program;
+    if (teachingHours === 0 && cp) {
+        let cpMins = 0;
+        if (Array.isArray(cp.scheduleMatrix) && cp.scheduleMatrix.length > 0) {
+            const dayKeys = ['mon', 'tue', 'wed', 'thu', 'fri'];
+            const nonTeaching = ['flag ceremony', 'health break', 'recess', 'break', 'lunch'];
+            cp.scheduleMatrix.forEach(row => {
+                const rowMin = parseInt(row.min, 10) || 60;
+                dayKeys.forEach(k => {
+                    const val = (row[k] || '').trim().toLowerCase();
+                    if (val && !nonTeaching.some(kw => val.includes(kw))) {
+                        cpMins += rowMin;
+                    }
+                });
+            });
+        }
+        if (cpMins > 0) {
+            teachingHours = cpMins / 60;
+        } else if (parseFloat(cp.coreHours || 0) > 0) {
+            teachingHours = parseFloat(cp.coreHours);
+        } else if (parseFloat(cp.totalLogged || 0) > 0) {
+            teachingHours = parseFloat(cp.totalLogged);
+        }
+
+        if (ancillaryHours === 0 && assignmentHours === 0 && parseFloat(cp.ancillaryHours || 0) > 0) {
+            ancillaryHours = parseFloat(cp.ancillaryHours);
+            ancillaryWLU = ancillaryHours * 1.5;
+        }
+    }
+
+    const teachingWLU = teachingHours * 1.0;
     const totalHours = parseFloat((teachingHours + ancillaryHours + assignmentHours).toFixed(1));
     const totalJDS = parseFloat((teachingWLU + ancillaryWLU + assignmentWLU).toFixed(2));
 
     let status = 'OPTIMAL';
+    let tierKey = 'optimal';
     let statusClass = 'text-success';
 
-    if (totalJDS > 75) { status = 'OVERLOAD'; statusClass = 'text-danger'; }
-    else if (totalJDS >= 66) { status = 'MAXIMIZED'; statusClass = 'text-warning'; }
-    else if (totalJDS >= 54) { status = 'HIGH'; statusClass = 'text-warning'; }
-    else if (totalJDS >= 36) { status = 'OPTIMAL'; statusClass = 'text-success'; }
-    else { status = 'UNDERLOAD'; statusClass = 'text-info'; }
+    if (totalJDS > 75) { status = 'OVERLOAD'; tierKey = 'overload'; statusClass = 'text-danger'; }
+    else if (totalJDS >= 66) { status = 'MAXIMIZED'; tierKey = 'high'; statusClass = 'text-warning'; }
+    else if (totalJDS >= 54) { status = 'HIGH'; tierKey = 'high'; statusClass = 'text-warning'; }
+    else if (totalJDS >= 36) { status = 'OPTIMAL'; tierKey = 'optimal'; statusClass = 'text-success'; }
+    else { status = 'UNDERLOAD'; tierKey = 'underload'; statusClass = 'text-info'; }
 
-    return { teachingHours, ancillaryHours, assignmentHours, totalHours, teachingWLU, ancillaryWLU, assignmentWLU, totalJDS, status, statusClass };
+    return {
+        teachingHours,
+        ancillaryHours,
+        assignmentHours,
+        totalHours,
+        teachingWLU,
+        ancillaryWLU,
+        assignmentWLU,
+        totalJDS,
+        status,
+        tierKey,
+        statusClass
+    };
+};
+
+/**
+ * Unified Burnout Classification Engine (Latest Assessment Only + Unassessed Tier)
+ */
+window.classifyBurnoutStatus = function(teacherProfile) {
+    const assessments = Array.isArray(teacherProfile?.burnout_assessments)
+        ? teacherProfile.burnout_assessments.slice().sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+        : [];
+    const latest = assessments.length > 0 ? assessments[0] : null;
+
+    if (!latest) {
+        return {
+            hasAssessment: false,
+            latestAssessment: null,
+            riskIndex: null,
+            ee: null,
+            dp: null,
+            pa: null,
+            tier: 'unassessed',
+            label: 'UNASSESSED'
+        };
+    }
+
+    const ee = latest.ee_score != null ? Number(latest.ee_score) : null;
+    const dp = latest.dp_score != null ? Number(latest.dp_score) : null;
+    const pa = latest.pa_score != null ? Number(latest.pa_score) : null;
+    const riskIndex = latest.risk_index != null
+        ? parseFloat(latest.risk_index)
+        : Math.round(((ee || 0) / 54) * 50 + ((dp || 0) / 30) * 30 + ((48 - (pa || 0)) / 48) * 20);
+
+    let tier = 'low';
+    let label = 'LOW RISK';
+    if (riskIndex >= 70) { tier = 'high'; label = 'HIGH RISK'; }
+    else if (riskIndex >= 40) { tier = 'moderate'; label = 'MODERATE RISK'; }
+
+    return {
+        hasAssessment: true,
+        latestAssessment: latest,
+        riskIndex,
+        ee,
+        dp,
+        pa,
+        tier,
+        label
+    };
+};
+
+/**
+ * Unified School-Scoped Teacher Fetcher for Principal Dashboard & Directories
+ */
+window.fetchScopedTeachersForPrincipal = async function() {
+    if (!window.supabaseClient) {
+        return { school: null, teachers: [], error: 'Supabase client not loaded.' };
+    }
+    const { data: { session }, error: sessionError } = await window.supabaseClient.auth.getSession();
+    if (sessionError || !session?.user) {
+        return { school: null, teachers: [], error: 'No active session found.' };
+    }
+
+    const { data: userProfile } = await window.supabaseClient
+        .from('profiles')
+        .select('role, school, assigned_institution')
+        .eq('id', session.user.id)
+        .single();
+
+    const role = (userProfile?.role || '').toLowerCase();
+    const school = userProfile?.school || userProfile?.assigned_institution || null;
+
+    if (role === 'principal' && !school) {
+        return { school: null, teachers: [], error: 'No school assigned to your profile. Please contact Admin.' };
+    }
+
+    let query = window.supabaseClient
+        .from('profiles')
+        .select(`
+            id, first_name, last_name, department, role, teacher_code, school, class_program,
+            teaching_loads ( minutes_per_week ),
+            ancillary_duties ( * ),
+            burnout_assessments ( risk_index, ee_score, dp_score, pa_score, created_at )
+        `)
+        .eq('role', 'teacher');
+
+    if (school) {
+        query = query.eq('school', school);
+    }
+
+    const { data: teachers, error } = await query;
+    if (error) {
+        return { school, teachers: [], error: error.message };
+    }
+
+    return { school, teachers: teachers || [], error: null };
 };
 
 // 1. Calculate workload summary for a single teacher

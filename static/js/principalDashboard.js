@@ -99,7 +99,7 @@ async function loadPrincipalDashboardData() {
             console.warn("No school assigned to your profile.");
             const errorMessage = "No school assigned to your profile. Please contact Admin.";
 
-            renderDynamicBannerStats(0, 0);
+            renderDynamicBannerStats(0, 0, 0);
             updatePrincipalSummaryCards({
                 totalTeachers: 0,
                 totalTeachingHrs: "0.0",
@@ -145,6 +145,7 @@ async function loadPrincipalDashboardData() {
                 role,
                 teacher_code,
                 school,
+                class_program,
                 teaching_loads ( minutes_per_week ),
                 ancillary_duties ( * ),
                 burnout_assessments ( * )
@@ -157,7 +158,7 @@ async function loadPrincipalDashboardData() {
             return;
         }
 
-        let totalSchoolTeachingMins = 0;
+        let totalSchoolTeachingHrs = 0;
         let totalSchoolAncillaryHrs = 0;
         let overloadedCount = 0;
         let maximizedCount = 0;
@@ -171,12 +172,12 @@ async function loadPrincipalDashboardData() {
         const deptMap = {};
 
         const processedTeachers = teachers.map((teacher, index) => {
-            // Use window engine if available, or compute fallback inline
+            // Use unified window engine if available, or compute fallback inline
             const wlu = (typeof window.calculateWLUDetails === 'function') 
                 ? window.calculateWLUDetails(teacher) 
                 : computeFallbackWLU(teacher);
 
-            totalSchoolTeachingMins += teacher.teaching_loads?.reduce((sum, item) => sum + (item.minutes_per_week || 0), 0) || 0;
+            totalSchoolTeachingHrs += (wlu.teachingHours || 0);
             totalSchoolAncillaryHrs += (wlu.ancillaryHours || 0) + (wlu.assignmentHours || 0);
 
             // Increment WLU counters based on classification
@@ -194,16 +195,15 @@ async function loadPrincipalDashboardData() {
             deptMap[deptName].totalWLU += wlu.totalJDS;
             deptMap[deptName].count += 1;
 
-            // Burnout Pulse Assessment Extraction
-            const sortedAssessments = teacher.burnout_assessments?.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-            const hasRecentAssessment = sortedAssessments && sortedAssessments.length > 0;
-            if (hasRecentAssessment) completedPulseCount++;
+            // Unified Burnout Classification (Latest assessment only; unassessed stays null)
+            const burnout = (typeof window.classifyBurnoutStatus === 'function')
+                ? window.classifyBurnoutStatus(teacher)
+                : { hasAssessment: false, riskIndex: null, tier: 'unassessed', label: 'UNASSESSED' };
 
-            const latestRiskScore = hasRecentAssessment 
-                ? parseFloat(sortedAssessments[0].risk_index) 
-                : Math.min(100, Math.round((wlu.totalJDS / 75) * 80));
-
-            totalRiskScoreSum += latestRiskScore;
+            if (burnout.hasAssessment) {
+                completedPulseCount++;
+                totalRiskScoreSum += burnout.riskIndex;
+            }
 
             const tCode = teacher.teacher_code || `TCH2026-${String(index + 1).padStart(3, '0')}`;
 
@@ -213,18 +213,21 @@ async function loadPrincipalDashboardData() {
                 fullName: `${teacher.last_name || ''}, ${teacher.first_name || 'Teacher'}`,
                 totalLoadHrs: wlu.totalHours,
                 totalJDS: wlu.totalJDS,
-                riskIndex: latestRiskScore,
+                hasAssessment: burnout.hasAssessment,
+                riskIndex: burnout.riskIndex,
+                burnoutTier: burnout.tier,
+                burnoutLabel: burnout.label,
                 status: wlu.status
             };
         });
 
         // 1. Render Top Banner Stats
-        renderDynamicBannerStats(processedTeachers.length, totalRiskScoreSum);
+        renderDynamicBannerStats(processedTeachers.length, completedPulseCount, totalRiskScoreSum);
 
         // 2. Update Workload Summary Metric Cards
         updatePrincipalSummaryCards({
             totalTeachers: teachers.length,
-            totalTeachingHrs: (totalSchoolTeachingMins / 60).toFixed(1),
+            totalTeachingHrs: totalSchoolTeachingHrs.toFixed(1),
             totalAncillaryHrs: totalSchoolAncillaryHrs.toFixed(1),
             underloadedCount: underloadedCount,
             optimalCount: optimalCount,
@@ -335,36 +338,44 @@ function renderBurnoutSummaryCards(teachers) {
     let lowCount = 0;
     let modCount = 0;
     let highCount = 0;
+    let unassessedCount = 0;
 
     teachers.forEach(teacher => {
-        const risk = teacher.riskIndex || 0;
-        if (risk >= 70) {
+        if (teacher.burnoutTier === 'high') {
             highCount++;
-        } else if (risk >= 40) {
+        } else if (teacher.burnoutTier === 'moderate') {
             modCount++;
-        } else {
+        } else if (teacher.burnoutTier === 'low') {
             lowCount++;
+        } else {
+            unassessedCount++;
         }
     });
 
     const lowEl = document.getElementById('burnout-count-low');
     const modEl = document.getElementById('burnout-count-moderate');
     const highEl = document.getElementById('burnout-count-high');
+    const unassessedEl = document.getElementById('burnout-count-unassessed');
 
     if (lowEl) lowEl.innerText = lowCount;
     if (modEl) modEl.innerText = modCount;
     if (highEl) highEl.innerText = highCount;
+    if (unassessedEl) unassessedEl.innerText = unassessedCount;
 }
 
-function renderDynamicBannerStats(totalFacultyCount, totalRiskSum) {
+function renderDynamicBannerStats(totalFacultyCount, assessedCount, totalRiskSum) {
     const facultyCountEl = document.querySelector('.welcome-stats-box .stat-val--blue');
     const wellnessEl = document.querySelector('.welcome-stats-box .stat-val--green-light');
 
     if (facultyCountEl) facultyCountEl.innerText = `${totalFacultyCount} Members`;
-    if (wellnessEl && totalFacultyCount > 0) {
-        const avgRisk = totalRiskSum / totalFacultyCount;
-        const wellnessPercent = Math.max(0, (100 - avgRisk)).toFixed(1);
-        wellnessEl.innerText = `${wellnessPercent}% Balanced`;
+    if (wellnessEl) {
+        if (assessedCount > 0) {
+            const avgRisk = totalRiskSum / assessedCount;
+            const wellnessPercent = Math.max(0, (100 - avgRisk)).toFixed(1);
+            wellnessEl.innerText = `${wellnessPercent}% Balanced`;
+        } else {
+            wellnessEl.innerText = 'Awaiting Pulse';
+        }
     }
 }
 
@@ -426,8 +437,8 @@ function renderHighRiskHotlist(teachers) {
     const hotlistPanel = document.querySelector('.hotlist-panel');
     if (!hotlistPanel) return;
 
-    const highRisk = teachers.filter(t => t.riskIndex >= 70 || t.status === 'OVERLOAD' || t.status === 'OVERLOADED');
-    const hiddenStrain = teachers.filter(t => t.riskIndex >= 65 && t.totalJDS <= 54);
+    const highRisk = teachers.filter(t => (t.hasAssessment && t.riskIndex >= 70) || t.status === 'OVERLOAD' || t.status === 'OVERLOADED');
+    const hiddenStrain = teachers.filter(t => t.hasAssessment && t.riskIndex >= 65 && t.totalJDS <= 54);
 
     let html = `
         <div class="hotlist-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
@@ -452,10 +463,10 @@ function renderHighRiskHotlist(teachers) {
                 <div class="hotlist-item hotlist-item--critical" style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; border-radius: 8px; background: #fff1f2; border: 1px solid #fecdd3; margin-bottom: 0.85rem;">
                     <div class="hotlist-item-left">
                         <span class="hotlist-code" style="font-weight: 800; color: #dc2626; font-size: 1rem; display: block;">${teacher.teacherCode} (${teacher.fullName})</span>
-                        <span class="hotlist-details" style="font-size: 0.82rem; color: #9f1239;">JDS: ${teacher.totalJDS} WLU | Risk Score: ${teacher.riskIndex}/100</span>
+                        <span class="hotlist-details" style="font-size: 0.82rem; color: #9f1239;">JDS: ${teacher.totalJDS} WLU | Risk Score: ${teacher.hasAssessment ? `${teacher.riskIndex}/100` : 'Unassessed'}</span>
                     </div>
                     <div class="hotlist-item-right" style="display: flex; gap: 0.5rem;">
-                        <button class="hotlist-btn" onclick="window.location.href='high_burnout_teachers.html'" style="padding: 0.4rem 0.8rem; border-radius: 6px; border: 1px solid #fecdd3; background: #ffffff; color: #be123c; font-weight: 600; font-size: 0.82rem; cursor: pointer;">
+                        <button class="hotlist-btn" onclick="window.location.href='burnout_reports_directory.html?tier=high'" style="padding: 0.4rem 0.8rem; border-radius: 6px; border: 1px solid #fecdd3; background: #ffffff; color: #be123c; font-weight: 600; font-size: 0.82rem; cursor: pointer;">
                             <i class="fas fa-file-invoice"></i> Diagnostic
                         </button>
                     </div>
@@ -470,7 +481,7 @@ function renderHighRiskHotlist(teachers) {
                 <i class="fas fa-flag" style="color: #d97706; margin-right: 0.4rem;"></i> 
                 <strong>Hidden Strain Flag:</strong> ${hiddenStrain.length} Faculty entries report high emotional fatigue despite optimal WLU scores (&le;54 WLU).
             </div>
-            <button class="hidden-flag-link" onclick="window.location.href='moderate_burnout_teachers.html'" style="background: transparent; border: none; color: #0038A8; font-weight: 700; font-size: 0.82rem; cursor: pointer;">
+            <button class="hidden-flag-link" onclick="window.location.href='burnout_reports_directory.html?tier=moderate'" style="background: transparent; border: none; color: #0038A8; font-weight: 700; font-size: 0.82rem; cursor: pointer;">
                 Inspect Roster &rarr;
             </button>
         </div>
@@ -485,7 +496,7 @@ function renderPulseCompliancePanel(totalFaculty, completedCount, totalRiskSum) 
 
     const pendingCount = totalFaculty - completedCount;
     const ratePercent = totalFaculty > 0 ? Math.round((completedCount / totalFaculty) * 100) : 0;
-    const avgExhaustion = totalFaculty > 0 ? Math.round(totalRiskSum / totalFaculty) : 0;
+    const avgExhaustion = completedCount > 0 ? Math.round(totalRiskSum / completedCount) : null;
 
     pulsePanel.innerHTML = `
         <h3 style="color: #059669; margin: 0; font-size: 1.1rem; font-weight: 700;">
@@ -512,7 +523,7 @@ function renderPulseCompliancePanel(totalFaculty, completedCount, totalRiskSum) 
         <div class="pulse-exhaustion" style="margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; font-size: 0.83rem;">
             <span style="color: #475569;">Average System Exhaustion:</span> 
             <span style="text-align: right;">
-                <strong style="color: ${avgExhaustion > 60 ? '#dc2626' : '#059669'};">${avgExhaustion}% ${avgExhaustion > 60 ? '(Elevated)' : '(Optimal)'}</strong>
+                <strong style="color: ${avgExhaustion === null ? '#64748b' : (avgExhaustion > 60 ? '#dc2626' : '#059669')};">${avgExhaustion === null ? 'No assessments yet' : `${avgExhaustion}% ${avgExhaustion > 60 ? '(Elevated)' : '(Optimal)'}`}</strong>
             </span>
         </div>
     `;
@@ -524,35 +535,33 @@ async function renderPrincipalCharts(teachers, metrics) {
     Chart.defaults.font.family = "'Inter', sans-serif";
     Chart.defaults.color = '#64748b';
 
-    // 1. Doughnut: Faculty Burnout Risk Distribution
+    // 1. Doughnut: Faculty Burnout Risk Distribution (Latest assessment per teacher + Unassessed)
     const distCanvas = document.getElementById('distributionChart');
     if (distCanvas) {
         if (distributionChartInstance) distributionChartInstance.destroy();
 
-        // Scoped strictly to the school's teachers' assessments
-        const allAssessments = (teachers || []).flatMap(t => t.burnout_assessments || []);
+        let highCount = 0;
+        let moderateCount = 0;
+        let lowCount = 0;
+        let unassessedCount = 0;
 
-        if (!allAssessments || allAssessments.length === 0) {
+        (teachers || []).forEach(t => {
+            if (t.burnoutTier === 'high') highCount++;
+            else if (t.burnoutTier === 'moderate') moderateCount++;
+            else if (t.burnoutTier === 'low') lowCount++;
+            else unassessedCount++;
+        });
+
+        if (!teachers || teachers.length === 0) {
             distCanvas.parentElement.innerHTML = `<div style="display:flex; align-items:center; justify-content:center; height:100%; min-height:220px; color:#94a3b8; font-size:0.9rem; font-weight:500;">No data available yet.</div>`;
         } else {
-            let highCount = 0;
-            let moderateCount = 0;
-            let lowCount = 0;
-
-            allAssessments.forEach(item => {
-                const score = parseFloat(item.risk_index || 0);
-                if (score > 70) highCount++;
-                else if (score >= 40) moderateCount++;
-                else lowCount++;
-            });
-
             distributionChartInstance = new Chart(distCanvas.getContext('2d'), {
                 type: 'doughnut',
                 data: {
-                    labels: ['High Risk (>70)', 'Moderate Risk (40–70)', 'Low Risk (<40)'],
+                    labels: ['High Risk (≥70)', 'Moderate Risk (40–69)', 'Low Risk (<40)', 'Unassessed'],
                     datasets: [{
-                        data: [highCount, moderateCount, lowCount],
-                        backgroundColor: ['#dc2626', '#f59e0b', '#059669'],
+                        data: [highCount, moderateCount, lowCount, unassessedCount],
+                        backgroundColor: ['#dc2626', '#f59e0b', '#059669', '#94a3b8'],
                         borderWidth: 2,
                         borderColor: '#ffffff'
                     }]
@@ -578,20 +587,11 @@ async function renderPrincipalCharts(teachers, metrics) {
 
         const scatterPoints = [];
         (teachers || []).forEach(t => {
-            const teachingMins = t.teaching_loads?.reduce((sum, item) => sum + (item.minutes_per_week || 0), 0) || 0;
-            const teachingHrs = teachingMins / 60;
-            const ancillaryHrs = t.ancillary_duties?.reduce((sum, item) => sum + parseFloat(item.hours_per_week || item.hours || 0), 0) || 0;
-            const totalHours = parseFloat((teachingHrs + ancillaryHrs).toFixed(1));
-
-            const sorted = t.burnout_assessments?.slice().sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-            const latest = sorted && sorted.length > 0 ? sorted[0] : null;
-
-            if (latest && latest.risk_index != null) {
-                const riskIndex = parseFloat(latest.risk_index);
+            if (t.hasAssessment && t.riskIndex != null) {
                 scatterPoints.push({
-                    x: totalHours,
-                    y: riskIndex,
-                    isHighRisk: riskIndex > 70,
+                    x: t.totalLoadHrs || 0,
+                    y: t.riskIndex,
+                    isHighRisk: t.riskIndex >= 70,
                     name: t.fullName || 'Teacher'
                 });
             }

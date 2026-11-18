@@ -95,7 +95,7 @@
                             </p>
                         </div>
                         <div class="directory-count-badge">
-                            <span id="visibleReportCount">5</span> Records Filtered
+                            <span id="visibleReportCount">0</span> Records Filtered
                         </div>
                     </div>
 
@@ -107,10 +107,10 @@
                         <div class="filter-select-wrapper">
                             <select id="statusFilter" class="filter-select">
                                 <option value="all">All Workload Tiers</option>
-                                <option value="overload">Critical Overload (&gt;40 hrs)</option>
-                                <option value="high">High Load (38–40 hrs)</option>
-                                <option value="optimal">Optimal Load (30–37 hrs)</option>
-                                <option value="underload">Underload (&lt;30 hrs)</option>
+                                <option value="overload">Critical Overload (&gt;75 WLU)</option>
+                                <option value="high">High / Maximized Load (54–75 WLU)</option>
+                                <option value="optimal">Optimal Load (36–54 WLU)</option>
+                                <option value="underload">Underload (&lt;36 WLU)</option>
                             </select>
                         </div>
                     </div>
@@ -167,7 +167,8 @@
     <script src="../../static/js/supabaseClient.js"></script>
     <script src="../../static/js/authGuard.js" data-allowed-roles="principal"></script>
     <script src="../../static/js/logout.js"></script>
-    <script src="../../js/reportsDirectory.js"></script>
+    <script src="../../static/js/workloadManager.js"></script>
+    <script src="../../static/js/workloadCategoryList.js"></script>
     <script>
         (function() {
             const backBtn = document.getElementById('navBackBtn') || document.getElementById('btnBackDashboard');

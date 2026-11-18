@@ -16,41 +16,45 @@ async function loadBurnoutCategoryTable() {
     else targetCategory = 'low';
 
     try {
-        const { data: profiles, error } = await window.supabaseClient
-            .from('profiles')
-            .select(`
-                id, first_name, last_name, role, department, teacher_code,
-                teaching_loads ( minutes_per_week ),
-                ancillary_duties ( * ),
-                burnout_assessments ( * )
-            `)
-            .eq('role', 'teacher');
-
-        if (error) throw error;
+        let profiles = [];
+        if (typeof window.fetchScopedTeachersForPrincipal === 'function') {
+            const result = await window.fetchScopedTeachersForPrincipal();
+            if (result.error) throw new Error(result.error);
+            profiles = result.teachers || [];
+        } else {
+            const { data, error } = await window.supabaseClient
+                .from('profiles')
+                .select(`
+                    id, first_name, last_name, role, department, teacher_code, class_program,
+                    teaching_loads ( minutes_per_week ),
+                    ancillary_duties ( * ),
+                    burnout_assessments ( risk_index, ee_score, dp_score, pa_score, created_at )
+                `)
+                .eq('role', 'teacher');
+            if (error) throw error;
+            profiles = data || [];
+        }
 
         tableBody.innerHTML = '';
 
         const filteredProfiles = profiles.filter(profile => {
-            // Extract latest burnout assessment score
-            const sorted = profile.burnout_assessments?.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-            const latest = sorted && sorted.length > 0 ? sorted[0] : null;
+            const burnout = (typeof window.classifyBurnoutStatus === 'function')
+                ? window.classifyBurnoutStatus(profile)
+                : (() => {
+                    const sorted = profile.burnout_assessments?.slice().sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+                    const latest = sorted && sorted.length > 0 ? sorted[0] : null;
+                    if (!latest) return { hasAssessment: false, tier: 'unassessed', riskIndex: null, latestAssessment: null };
+                    const riskIndex = latest.risk_index != null ? parseFloat(latest.risk_index) : 0;
+                    const tier = riskIndex >= 70 ? 'high' : (riskIndex >= 40 ? 'moderate' : 'low');
+                    return { hasAssessment: true, tier, riskIndex, latestAssessment: latest };
+                })();
 
-            // Calculate WLU score
-            const wlu = (typeof window.calculateWLUDetails === 'function') 
-                ? window.calculateWLUDetails(profile) 
-                : { totalJDS: 0 };
+            // Unassessed teachers are never counted in low/moderate/high
+            if (!burnout.hasAssessment) return false;
 
-            const riskIndex = latest?.risk_index ? parseFloat(latest.risk_index) : Math.min(100, Math.round((wlu.totalJDS / 75) * 80));
-
-            let tier = 'low';
-            if (riskIndex >= 70) tier = 'high';
-            else if (riskIndex >= 40) tier = 'moderate';
-
-            profile.riskIndex = riskIndex;
-            profile.latestAssessment = latest;
-            profile.wlu = wlu;
-
-            return tier === targetCategory;
+            profile.riskIndex = burnout.riskIndex;
+            profile.latestAssessment = burnout.latestAssessment;
+            return burnout.tier === targetCategory;
         });
 
         if (filteredProfiles.length === 0) {
